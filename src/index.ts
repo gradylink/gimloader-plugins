@@ -1,5 +1,11 @@
 api.settings.create([
   {
+    type: "toggle",
+    id: "gravity",
+    title: "Gravity",
+    default: true,
+  },
+  {
     type: "group",
     title: "Editing Options",
     settings: [

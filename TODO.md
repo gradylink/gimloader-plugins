@@ -5,6 +5,7 @@
 - [x] Update settings on change
 - [x] Update Settings On Load
 - [ ] Support Updating All Settings
+  - [ ] Gravity
   - [x] Camera Zoom
   - [ ] Player Collision
   - [ ] Player Speed
