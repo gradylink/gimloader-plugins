@@ -149,6 +149,15 @@ var applySettings = () => {
   api.net.send("TOGGLE_PHASE", { enabled: !api.settings.collision });
   api.stores.me.editing.preferences.phase = !api.settings.collision;
   api.stores.me.phase = !api.settings.collision;
+  localStorage.setItem(
+    "zoned-device-views",
+    {
+      "visible": "visible",
+      "border": "bordersOnly",
+      "hidden": "fullyHidden",
+    }[api.settings.zone],
+  );
+  api.net.room.onMessageHandlers.emit("RESET");
   if (api.stores.session.mapStyle != "platformer") return;
   api.stores.me.editing.preferences.topDownControlsActive = !api.settings
     .gravity;
