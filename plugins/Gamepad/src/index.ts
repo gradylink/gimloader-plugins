@@ -96,6 +96,20 @@ enum SelectedAnswer {
   BottomRight = 3,
 }
 
+// @ts-expect-error
+api.rewriter.runInScope("App", (code, run) => {
+  if (!code.includes("Press Enter")) return;
+
+  const afterName = code.indexOf('={tapText:"Tap"');
+  const beforeName = code.lastIndexOf(",", afterName) + 1;
+  const name = code.slice(beforeName, afterName);
+
+  run(`${name}.keyText = "Press LT"; ${name}.keyHoldText = "Press LT & Hold";`);
+  api.onStop(() => {
+    run(`${name}.keyText = "Press Enter"; ${name}.keyHoldText = "Press Enter & Hold";`);
+  })
+})
+
 let answeringQuestions = false;
 let selectedAnswer = SelectedAnswer.TopLeft;
 let inputCooldown = false;
