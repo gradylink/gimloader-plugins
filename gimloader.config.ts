@@ -1,8 +1,9 @@
-/** @type {import('@gimloader/build').Config} */
-export default {
+import { workspaceConfig } from "@gimloader/build";
+
+export default workspaceConfig({
   type: "workspace",
   splitPluginsAndLibraries: true,
   autoAlias: [
     "./plugins",
   ],
-};
+});

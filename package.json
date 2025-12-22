@@ -8,7 +8,7 @@
   },
   "author": "grady.link",
   "devDependencies": {
-    "@gimloader/build": "^1.2.4",
-    "@types/gimloader": "^1.9.1"
+    "@gimloader/build": "^1.4.0",
+    "@types/gimloader": "^1.10.0"
   }
 }
