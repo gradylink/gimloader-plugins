@@ -47,6 +47,14 @@ let originalGetPhysicsInput:
   })
   | null = null;
 
+const getMagnitude = () => {
+  if (gamepad === null) return 0;
+  if (api.stores.session.mapStyle == "platformer") {
+    return Math.abs(gamepad.axes[0]);
+  }
+  return Math.sqrt(gamepad.axes[0] ** 2 + gamepad.axes[1] ** 2);
+};
+
 api.net.onLoad(() => {
   originalGetPhysicsInput =
     api.stores.phaser.scene.inputManager.getPhysicsInput;
@@ -57,30 +65,34 @@ api.net.onLoad(() => {
       api.settings.keyboard;
     let left = (keys.has("KeyA") || keys.has("ArrowLeft")) &&
       api.settings.keyboard;
+    let down = (keys.has("KeyS") || keys.has("ArrowDown")) &&
+      api.settings.keyboard && api.stores.session.mapStyle == "topDown";
 
     if (gamepad !== null) {
       gamepad = navigator.getGamepads()[gamepad.index];
 
-      jumpPressed ||= gamepad?.buttons[0].pressed ||
-        gamepad?.buttons[1].pressed || gamepad?.buttons[12].pressed ||
+      jumpPressed ||= ((gamepad?.buttons[0].pressed ||
+        gamepad?.buttons[1].pressed) &&
+        api.stores.session.mapStyle == "platformer") ||
+        gamepad?.buttons[12].pressed ||
         (gamepad?.axes[1]! < -api.settings.deadzone &&
-          api.settings.joystickJump);
+          (api.settings.joystickJump ||
+            api.stores.session.mapStyle == "topDown"));
       right ||= gamepad?.buttons[15].pressed ||
         gamepad?.axes[0]! > api.settings.deadzone;
       left ||= gamepad?.buttons[14].pressed ||
         gamepad?.axes[0]! < -api.settings.deadzone;
-
-      if (api.stores.me.movementSpeed !== normalSpeed) {
-        console.log(api.stores.me.movementSpeed);
-      }
+      down ||= (gamepad?.buttons[13].pressed ||
+        gamepad?.axes[1]! > api.settings.deadzone) &&
+        api.stores.session.mapStyle == "topDown";
 
       if (
-        Math.abs(gamepad?.axes[0]!) > api.settings.deadzone &&
+        getMagnitude() > api.settings.deadzone &&
         api.settings.preciseJoysticks
       ) {
         api.stores.me.movementSpeed = normalSpeed *
           Math.max(
-            Math.abs(gamepad?.axes[0]!),
+            getMagnitude(),
             api.plugins.isEnabled("Desynchronize")
               ? 0
               : 0.65, /* Slowest allowed speed based on my testing. */
@@ -97,18 +109,37 @@ api.net.onLoad(() => {
     // Generate Physics Stuff, Stolen from DLDTAS
     let physicsAngle: number | null = null;
 
-    if (right && !left && !jumpPressed) physicsAngle = 0;
-    else if (!right && left && !jumpPressed) physicsAngle = 180;
-    else if (!right && !left && jumpPressed) physicsAngle = 270;
-    else if (right && !left && jumpPressed) physicsAngle = 315;
-    else if (
-      (!right && left && jumpPressed) || (right && left && jumpPressed)
-    ) physicsAngle = 225;
+    if (left && right && (jumpPressed || down)) {
+      left = true;
+      right = false;
+      jumpPressed = true;
+      down = false;
+    }
+
+    if (
+      api.stores.session.mapStyle === "topDown" && gamepad !== null &&
+      getMagnitude() > api.settings.deadzone &&
+      api.settings.preciseJoysticks
+    ) {
+      physicsAngle =
+        (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI +
+          360) %
+        360;
+    } else if (
+      (down || jumpPressed || left || right) && !(left && right) &&
+      !(down && jumpPressed)
+    ) {
+      physicsAngle =
+        (Math.atan2(+down - +jumpPressed, +right - +left) * 180 / Math.PI +
+          360) % 360;
+    }
 
     return {
       angle: physicsAngle,
-      jump: shouldJump,
-      _jumpKeyPressed: jumpPressed,
+      jump: api.stores.session.mapStyle == "platformer" ? shouldJump : false,
+      _jumpKeyPressed: api.stores.session.mapStyle == "platformer"
+        ? jumpPressed
+        : false,
     };
   };
 });

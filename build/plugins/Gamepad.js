@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.1.0
+ * @version 0.2.0
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -44,23 +44,29 @@ var keys = /* @__PURE__ */ new Set();
 window.addEventListener("keydown", (e) => keys.add(e.code));
 window.addEventListener("keyup", (e) => keys.delete(e.code));
 var originalGetPhysicsInput = null;
+var getMagnitude = () => {
+  if (gamepad === null) return 0;
+  if (api.stores.session.mapStyle == "platformer") {
+    return Math.abs(gamepad.axes[0]);
+  }
+  return Math.sqrt(gamepad.axes[0] ** 2 + gamepad.axes[1] ** 2);
+};
 api.net.onLoad(() => {
   originalGetPhysicsInput = api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
     let jumpPressed = (keys.has("KeyW") || keys.has("ArrowUp") || keys.has("Space")) && api.settings.keyboard;
     let right = (keys.has("KeyD") || keys.has("ArrowRight")) && api.settings.keyboard;
     let left = (keys.has("KeyA") || keys.has("ArrowLeft")) && api.settings.keyboard;
+    let down = (keys.has("KeyS") || keys.has("ArrowDown")) && api.settings.keyboard && api.stores.session.mapStyle == "topDown";
     if (gamepad !== null) {
       gamepad = navigator.getGamepads()[gamepad.index];
-      jumpPressed ||= gamepad?.buttons[0].pressed || gamepad?.buttons[1].pressed || gamepad?.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone && api.settings.joystickJump;
+      jumpPressed ||= (gamepad?.buttons[0].pressed || gamepad?.buttons[1].pressed) && api.stores.session.mapStyle == "platformer" || gamepad?.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone && (api.settings.joystickJump || api.stores.session.mapStyle == "topDown");
       right ||= gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
       left ||= gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
-      if (api.stores.me.movementSpeed !== normalSpeed) {
-        console.log(api.stores.me.movementSpeed);
-      }
-      if (Math.abs(gamepad?.axes[0]) > api.settings.deadzone && api.settings.preciseJoysticks) {
+      down ||= (gamepad?.buttons[13].pressed || gamepad?.axes[1] > api.settings.deadzone) && api.stores.session.mapStyle == "topDown";
+      if (getMagnitude() > api.settings.deadzone && api.settings.preciseJoysticks) {
         api.stores.me.movementSpeed = normalSpeed * Math.max(
-          Math.abs(gamepad?.axes[0]),
+          getMagnitude(),
           api.plugins.isEnabled("Desynchronize") ? 0 : 0.65
           /* Slowest allowed speed based on my testing. */
         );
@@ -71,15 +77,21 @@ api.net.onLoad(() => {
     const shouldJump = jumpPressed && !jumped;
     jumped = jumpPressed;
     let physicsAngle = null;
-    if (right && !left && !jumpPressed) physicsAngle = 0;
-    else if (!right && left && !jumpPressed) physicsAngle = 180;
-    else if (!right && !left && jumpPressed) physicsAngle = 270;
-    else if (right && !left && jumpPressed) physicsAngle = 315;
-    else if (!right && left && jumpPressed || right && left && jumpPressed) physicsAngle = 225;
+    if (left && right && (jumpPressed || down)) {
+      left = true;
+      right = false;
+      jumpPressed = true;
+      down = false;
+    }
+    if (api.stores.session.mapStyle === "topDown" && gamepad !== null && getMagnitude() > api.settings.deadzone && api.settings.preciseJoysticks) {
+      physicsAngle = (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI + 360) % 360;
+    } else if ((down || jumpPressed || left || right) && !(left && right) && !(down && jumpPressed)) {
+      physicsAngle = (Math.atan2(+down - +jumpPressed, +right - +left) * 180 / Math.PI + 360) % 360;
+    }
     return {
       angle: physicsAngle,
-      jump: shouldJump,
-      _jumpKeyPressed: jumpPressed
+      jump: api.stores.session.mapStyle == "platformer" ? shouldJump : false,
+      _jumpKeyPressed: api.stores.session.mapStyle == "platformer" ? jumpPressed : false
     };
   };
 });
