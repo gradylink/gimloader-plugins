@@ -55,6 +55,8 @@ api.settings.create([
     id: "rumble",
     title: "Rumble",
     default: true,
+    description:
+      "Keep in mind some browsers/controllers do not support this setting.",
   },
 ]);
 

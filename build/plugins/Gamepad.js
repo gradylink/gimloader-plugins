@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.8.0
+ * @version 0.8.1
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -59,7 +59,8 @@ api.settings.create([
     type: "toggle",
     id: "rumble",
     title: "Rumble",
-    default: true
+    default: true,
+    description: "Keep in mind some browsers/controllers do not support this setting."
   }
 ]);
 var keys = /* @__PURE__ */ new Set();

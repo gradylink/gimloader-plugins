@@ -5,7 +5,7 @@ export default singleConfig({
   name: "Gamepad",
   description: "Controller Support For Gimkit.",
   author: "grady.link",
-  version: "0.8.0",
+  version: "0.8.1",
   downloadUrl:
     "https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js",
 });
