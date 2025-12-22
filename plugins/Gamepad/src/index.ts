@@ -106,7 +106,6 @@ api.net.onLoad(() => {
 
     jumped = jumpPressed;
 
-    // Generate Physics Stuff, Stolen from DLDTAS
     let physicsAngle: number | null = null;
 
     if (left && right && (jumpPressed || down)) {
