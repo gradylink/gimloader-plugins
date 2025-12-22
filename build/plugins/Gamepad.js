@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.4.0
+ * @version 0.5.0
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -44,6 +44,7 @@ var keys = /* @__PURE__ */ new Set();
 window.addEventListener("keydown", (e) => keys.add(e.code));
 window.addEventListener("keyup", (e) => keys.delete(e.code));
 var originalGetPhysicsInput = null;
+var originalAimCursorUpdate = null;
 var getMagnitude = () => {
   if (gamepad === null) return 0;
   if (api.stores.session.mapStyle == "platformer") {
@@ -73,6 +74,45 @@ questionsObserver.observe(document.body, {
   subtree: true
 });
 api.net.onLoad(() => {
+  const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
+  originalAimCursorUpdate = aimCursor.update;
+  aimCursor.update = () => {
+    if (gamepad !== null) {
+      if (Math.abs(gamepad.axes[2]) > api.settings.deadzone) {
+        aimCursor.x += gamepad.axes[2] * 10;
+      }
+      if (Math.abs(gamepad.axes[3]) > api.settings.deadzone) {
+        aimCursor.y += gamepad.axes[3] * 10;
+      }
+    }
+    aimCursor.aimCursor.x = aimCursor.x;
+    aimCursor.aimCursor.y = aimCursor.y;
+    aimCursor.aimCursor.alpha = 1;
+    aimCursor.aimCursor.visible = aimCursor.scene.game.canvas.style.cursor == "none";
+    aimCursor.aimCursorWorldPos = aimCursor.scene.cameraHelper.mainCamera.getWorldPoint(
+      aimCursor.x ** aimCursor.scene.resizeManager.usedDpi,
+      aimCursor.y ** aimCursor.scene.resizeManager.usedDpi
+    );
+    const horizontalCenter = window.innerWidth * aimCursor.scene.resizeManager.usedDpi / 2;
+    const verticalCenter = window.innerHeight * aimCursor.scene.resizeManager.usedDpi / 2;
+    aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
+    aimCursor.centerShiftY = verticalCenter - aimCursor.y;
+    console.log(
+      api.stores.phaser.mainCharacter.body.x - aimCursor.aimCursorWorldPos.x
+    );
+    if (gamepad !== null && gamepad.buttons[7].pressed && !inputCooldown) {
+      api.stores.network.room.send("FIRE", {
+        angle: Math.atan2(
+          aimCursor.aimCursorWorldPos.x - api.stores.phaser.mainCharacter.body.x,
+          -(aimCursor.aimCursorWorldPos.y - api.stores.phaser.mainCharacter.body.y)
+        ) + -90 * (Math.PI / 180),
+        x: api.stores.phaser.mainCharacter.body.x,
+        y: api.stores.phaser.mainCharacter.body.y
+      });
+      inputCooldown = true;
+      setTimeout(() => inputCooldown = false, 500);
+    }
+  };
   originalGetPhysicsInput = api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
     if (answeringQuestions) {
@@ -200,6 +240,9 @@ api.net.onLoad(() => {
 api.onStop(() => {
   if (originalGetPhysicsInput !== null) {
     api.stores.phaser.scene.inputManager.getPhysicsInput = originalGetPhysicsInput;
+  }
+  if (originalAimCursorUpdate !== null) {
+    api.stores.phaser.scene.inputManager.aimCursor.update = originalAimCursorUpdate;
   }
 });
 window.addEventListener("gamepadconnected", (e) => {

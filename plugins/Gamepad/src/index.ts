@@ -49,6 +49,8 @@ let originalGetPhysicsInput:
   })
   | null = null;
 
+let originalAimCursorUpdate: (() => void) | null = null;
+
 const getMagnitude = () => {
   if (gamepad === null) return 0;
   if (api.stores.session.mapStyle == "platformer") {
@@ -83,6 +85,7 @@ const updateSelectedAnswer = () => {
   });
 };
 
+// TODO: Correctly use MutationObserver (remove querySelector)
 const questionsObserver = new MutationObserver(() => {
   const wasAnsweringQuestions = answeringQuestions;
   answeringQuestions = document.querySelector("[answercolors]") != null;
@@ -95,6 +98,70 @@ questionsObserver.observe(document.body, {
 });
 
 api.net.onLoad(() => {
+  const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
+  originalAimCursorUpdate = aimCursor.update;
+  aimCursor.update = () => {
+    if (gamepad !== null) {
+      if (Math.abs(gamepad.axes[2]) > api.settings.deadzone) {
+        aimCursor.x += gamepad.axes[2] * 10;
+      }
+      if (Math.abs(gamepad.axes[3]) > api.settings.deadzone) {
+        aimCursor.y += gamepad.axes[3] * 10;
+      }
+    }
+    aimCursor.aimCursor.x = aimCursor.x;
+    aimCursor.aimCursor.y = aimCursor.y;
+
+    aimCursor.aimCursor.alpha = 1;
+    aimCursor.aimCursor.visible =
+      aimCursor.scene.game.canvas.style.cursor == "none";
+
+    aimCursor.aimCursorWorldPos = aimCursor.scene.cameraHelper.mainCamera
+      .getWorldPoint(
+        aimCursor.x ** aimCursor.scene.resizeManager.usedDpi,
+        aimCursor.y ** aimCursor.scene.resizeManager.usedDpi,
+      );
+
+    const horizontalCenter = window.innerWidth *
+      aimCursor.scene.resizeManager.usedDpi / 2;
+    const verticalCenter = window.innerHeight *
+      aimCursor.scene.resizeManager.usedDpi / 2;
+
+    aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
+    aimCursor.centerShiftY = verticalCenter - aimCursor.y;
+
+    console.log(
+      api.stores.phaser.mainCharacter.body.x - aimCursor.aimCursorWorldPos.x,
+    );
+
+    if (gamepad !== null && gamepad.buttons[7].pressed && !inputCooldown) {
+      // Oops this is for placing dynamic stuff, and maybe other actions, haven't done those yet?
+      /* api.net.send("CONSUME", {
+        "x": Math.round(
+          api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5,
+        ),
+        "y": Math.round(
+          api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5,
+        ) - 1,
+      });
+      console.log("hi"); */
+
+      api.stores.network.room.send("FIRE", {
+        angle: Math.atan2(
+          aimCursor.aimCursorWorldPos.x -
+            api.stores.phaser.mainCharacter.body.x,
+          -(aimCursor.aimCursorWorldPos.y -
+            api.stores.phaser.mainCharacter.body.y),
+        ) + (-90 * (Math.PI / 180)),
+        x: api.stores.phaser.mainCharacter.body.x,
+        y: api.stores.phaser.mainCharacter.body.y,
+      });
+
+      inputCooldown = true;
+      setTimeout(() => inputCooldown = false, 500);
+    }
+  };
+
   originalGetPhysicsInput =
     api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
@@ -312,6 +379,10 @@ api.onStop(() => {
   if (originalGetPhysicsInput !== null) {
     api.stores.phaser.scene.inputManager.getPhysicsInput =
       originalGetPhysicsInput;
+  }
+  if (originalAimCursorUpdate !== null) {
+    api.stores.phaser.scene.inputManager.aimCursor.update =
+      originalAimCursorUpdate;
   }
 });
 
