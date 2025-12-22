@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.5.2
+ * @version 0.5.3
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -38,6 +38,15 @@ api.settings.create([
     min: 0.05,
     max: 0.95,
     step: 0.05
+  },
+  {
+    type: "slider",
+    id: "lookSensitivity",
+    title: "Look Sensitivity",
+    default: 10,
+    min: 1,
+    max: 25,
+    step: 1
   }
 ]);
 var keys = /* @__PURE__ */ new Set();
@@ -79,10 +88,10 @@ api.net.onLoad(() => {
   aimCursor.update = () => {
     if (gamepad !== null) {
       if (Math.abs(gamepad.axes[2]) > api.settings.deadzone) {
-        aimCursor.x += gamepad.axes[2] * 10;
+        aimCursor.x += gamepad.axes[2] * api.settings.lookSensitivity;
       }
       if (Math.abs(gamepad.axes[3]) > api.settings.deadzone) {
-        aimCursor.y += gamepad.axes[3] * 10;
+        aimCursor.y += gamepad.axes[3] * api.settings.lookSensitivity;
       }
     }
     aimCursor.aimCursor.x = aimCursor.x;
