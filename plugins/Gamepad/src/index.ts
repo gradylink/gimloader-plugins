@@ -106,6 +106,8 @@ questionsObserver.observe(document.body, {
   subtree: true,
 });
 
+let leftTriggerWasPressed = false;
+
 api.net.onLoad(() => {
   const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
   originalAimCursorUpdate = aimCursor.update;
@@ -120,6 +122,9 @@ api.net.onLoad(() => {
     }
     aimCursor.aimCursor.x = aimCursor.x;
     aimCursor.aimCursor.y = aimCursor.y;
+
+    api.stores.phaser.scene.input.mousePointer.x = aimCursor.x;
+    api.stores.phaser.scene.input.mousePointer.y = aimCursor.y;
 
     aimCursor.aimCursor.alpha = 1;
     aimCursor.aimCursor.visible =
@@ -139,51 +144,68 @@ api.net.onLoad(() => {
     aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
     aimCursor.centerShiftY = verticalCenter - aimCursor.y;
 
-    if (gamepad !== null && !inputCooldown) {
-      if (gamepad.buttons[7].pressed) {
-        api.stores.network.room.send("FIRE", {
-          angle: Math.atan2(
-            aimCursor.aimCursorWorldPos.x -
-              api.stores.phaser.mainCharacter.body.x,
-            -(aimCursor.aimCursorWorldPos.y -
-              api.stores.phaser.mainCharacter.body.y),
-          ) + (-90 * (Math.PI / 180)),
-          x: api.stores.phaser.mainCharacter.body.x,
-          y: api.stores.phaser.mainCharacter.body.y,
-        });
+    if (gamepad !== null) {
+      api.stores.phaser.scene.input.mousePointer.isDown =
+        gamepad.buttons[7].pressed ||
+        api.stores.phaser.scene.inputManager.mouse.isHoldingDown;
 
-        inputCooldown = true;
-        setTimeout(() => inputCooldown = false, 500);
-      } else if (
+      if (
         gamepad.buttons[6].pressed &&
         !api.stores.me.inventory.interactiveSlots.get(
           api.stores.me.inventory.activeInteractiveSlot.toString(),
         )?.waiting
       ) {
-        api.net.send("CONSUME", {
-          "x": Math.round(
-            api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5,
-          ),
-          "y": Math.round(
-            api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5,
-          ),
-        });
+        const devices = api.stores.phaser.scene.worldManager.devices;
+        const body = api.stores.phaser.mainCharacter.body;
 
-        inputCooldown = true;
-        setTimeout(() => inputCooldown = false, 500);
+        const device = devices.interactives.findClosestInteractiveDevice(
+          devices.devicesInView,
+          body.x,
+          body.y,
+        );
+        if (device) {
+          if (api.plugins.isEnabled("InstantUse")) {
+            device.interactiveZones.onInteraction?.();
+          } else {
+            document.dispatchEvent(
+              new KeyboardEvent("keydown", {
+                key: "Enter",
+                code: "Enter",
+                keyCode: 13,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+          }
+        } else {
+          api.net.send("CONSUME", {
+            "x": Math.round(
+              api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5,
+            ),
+            "y": Math.round(
+              api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5,
+            ),
+          });
+        }
+      } else if (leftTriggerWasPressed) {
+        document.dispatchEvent(
+          new KeyboardEvent("keyup", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
       }
+
+      leftTriggerWasPressed = gamepad.buttons[6].pressed;
     }
   };
 
   originalGetPhysicsInput =
     api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
-    if (
-      !api.stores.me.inventory.slots.get("energy")?.amount &&
-      !api.plugins.isEnabled("Desynchronize")
-    ) {
-      return { angle: null, jump: false, _jumpKeyPressed: false };
-    }
     if (answeringQuestions) {
       if (gamepad !== null) {
         if (gamepad.buttons[1].pressed) {
@@ -382,6 +404,13 @@ api.net.onLoad(() => {
       physicsAngle =
         (Math.atan2(+down - +jumpPressed, +right - +left) * 180 / Math.PI +
           360) % 360;
+    }
+
+    if (
+      !api.stores.me.inventory.slots.get("energy")?.amount &&
+      !api.plugins.isEnabled("Desynchronize")
+    ) {
+      return { angle: null, jump: false, _jumpKeyPressed: false };
     }
 
     return {
