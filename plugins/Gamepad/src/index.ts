@@ -139,31 +139,39 @@ api.net.onLoad(() => {
     aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
     aimCursor.centerShiftY = verticalCenter - aimCursor.y;
 
-    if (gamepad !== null && gamepad.buttons[7].pressed && !inputCooldown) {
-      // Oops this is for placing dynamic stuff, and maybe other actions, haven't done those yet?
-      /* api.net.send("CONSUME", {
-        "x": Math.round(
-          api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5,
-        ),
-        "y": Math.round(
-          api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5,
-        ) - 1,
-      });
-      console.log("hi"); */
+    if (gamepad !== null && !inputCooldown) {
+      if (gamepad.buttons[7].pressed) {
+        api.stores.network.room.send("FIRE", {
+          angle: Math.atan2(
+            aimCursor.aimCursorWorldPos.x -
+              api.stores.phaser.mainCharacter.body.x,
+            -(aimCursor.aimCursorWorldPos.y -
+              api.stores.phaser.mainCharacter.body.y),
+          ) + (-90 * (Math.PI / 180)),
+          x: api.stores.phaser.mainCharacter.body.x,
+          y: api.stores.phaser.mainCharacter.body.y,
+        });
 
-      api.stores.network.room.send("FIRE", {
-        angle: Math.atan2(
-          aimCursor.aimCursorWorldPos.x -
-            api.stores.phaser.mainCharacter.body.x,
-          -(aimCursor.aimCursorWorldPos.y -
-            api.stores.phaser.mainCharacter.body.y),
-        ) + (-90 * (Math.PI / 180)),
-        x: api.stores.phaser.mainCharacter.body.x,
-        y: api.stores.phaser.mainCharacter.body.y,
-      });
+        inputCooldown = true;
+        setTimeout(() => inputCooldown = false, 500);
+      } else if (
+        gamepad.buttons[6].pressed &&
+        !api.stores.me.inventory.interactiveSlots.get(
+          api.stores.me.inventory.activeInteractiveSlot.toString(),
+        )?.waiting
+      ) {
+        api.net.send("CONSUME", {
+          "x": Math.round(
+            api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5,
+          ),
+          "y": Math.round(
+            api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5,
+          ),
+        });
 
-      inputCooldown = true;
-      setTimeout(() => inputCooldown = false, 500);
+        inputCooldown = true;
+        setTimeout(() => inputCooldown = false, 500);
+      }
     }
   };
 
