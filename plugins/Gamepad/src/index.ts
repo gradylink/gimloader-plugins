@@ -242,11 +242,27 @@ api.net.onLoad(() => {
   originalGetPhysicsInput =
     api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
+    if (api.stores.session.gameSession.phase === "results") {
+      return { angle: null, jump: false, _jumpKeyPressed: false };
+    }
+
+    if (
+      document.querySelector(".fa-times, .anticon-close, button:has(.lucide-x)")
+    ) {
+      if (gamepad !== null && gamepad.buttons[1].pressed) {
+        (document.querySelector(
+          ".fa-times, .anticon-close, button:has(.lucide-x)",
+        ) as HTMLElement)
+          .click();
+      }
+
+      if (!answeringQuestions) {
+        return { angle: null, jump: false, _jumpKeyPressed: false };
+      }
+    }
     if (answeringQuestions) {
       if (gamepad !== null) {
-        if (gamepad.buttons[1].pressed) {
-          (document.querySelector(".anticon-close") as HTMLSpanElement).click();
-        } else if (!inputCooldown) {
+        if (!inputCooldown) {
           if (gamepad.buttons[0].pressed) {
             const selectedQuestionText = document.querySelector(
               `[answercolors][position="${selectedAnswer}"]`,
@@ -346,6 +362,9 @@ api.net.onLoad(() => {
         api.stores.phaser.scene.worldManager.devices.allDevices.find((d) =>
           d.state.text === "Answer Questions"
         )?.buttonClicked();
+      } else if (gamepad?.buttons[8].pressed) {
+        (document.querySelector('[aria-label="Leaderboard"]') as HTMLDivElement)
+          .click();
       }
 
       if (!inputCooldown) {
