@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.7.0
+ * @version 0.8.0
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -13,9 +13,16 @@ var normalSpeed = 310;
 api.settings.create([
   {
     type: "toggle",
-    id: "preciseJoysticks",
-    title: "Precise Joystick Inputs",
+    id: "precisePlatformer",
+    title: "Platformer Precise Joystick Inputs",
     description: "Using this invalidates speedruns.",
+    default: true
+  },
+  {
+    type: "toggle",
+    id: "preciseTopdown",
+    title: "Top Down Precise Joystick Inputs",
+    description: "Using this IS allowed in speedruns.",
     default: true
   },
   {
@@ -47,6 +54,12 @@ api.settings.create([
     min: 1,
     max: 25,
     step: 1
+  },
+  {
+    type: "toggle",
+    id: "rumble",
+    title: "Rumble",
+    default: true
   }
 ]);
 var keys = /* @__PURE__ */ new Set();
@@ -83,6 +96,15 @@ questionsObserver.observe(document.body, {
   subtree: true
 });
 var leftTriggerWasPressed = false;
+api.net.on("PROJECTILE_CHANGES", (data) => {
+  if (data.hit.length == 0 || data.hit[0].hits[0].characterId != GL.stores.phaser.mainCharacter.id || !gamepad || !gamepad.vibrationActuator || !api.settings.rumble) return;
+  gamepad.vibrationActuator.playEffect("dual-rumble", {
+    startDelay: 0,
+    duration: 100,
+    weakMagnitude: 0.75,
+    strongMagnitude: 0.5
+  });
+});
 api.net.onLoad(() => {
   const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
   originalAimCursorUpdate = aimCursor.update;
@@ -252,7 +274,7 @@ api.net.onLoad(() => {
       right ||= gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
       left ||= gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
       down ||= (gamepad?.buttons[13].pressed || gamepad?.axes[1] > api.settings.deadzone) && api.stores.session.mapStyle == "topDown";
-      if (getMagnitude() > api.settings.deadzone && api.settings.preciseJoysticks) {
+      if (getMagnitude() > api.settings.deadzone && (api.settings.precisePlatformer || api.settings.preciseTopdown)) {
         api.stores.me.movementSpeed = normalSpeed * Math.max(
           getMagnitude(),
           api.plugins.isEnabled("Desynchronize") ? 0 : 0.65
@@ -271,12 +293,12 @@ api.net.onLoad(() => {
       jumpPressed = true;
       down = false;
     }
-    if (api.stores.session.mapStyle === "topDown" && gamepad !== null && getMagnitude() > api.settings.deadzone && api.settings.preciseJoysticks) {
+    if (api.stores.session.mapStyle === "topDown" && gamepad !== null && getMagnitude() > api.settings.deadzone && api.settings.preciseTopdown) {
       physicsAngle = (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI + 360) % 360;
     } else if ((down || jumpPressed || left || right) && !(left && right) && !(down && jumpPressed)) {
       physicsAngle = (Math.atan2(+down - +jumpPressed, +right - +left) * 180 / Math.PI + 360) % 360;
     }
-    if (!api.stores.me.inventory.slots.get("energy")?.amount && !api.plugins.isEnabled("Desynchronize")) {
+    if (!api.stores.me.inventory.slots.get("energy")?.amount && !api.plugins.isEnabled("Desynchronize") && api.stores.session.phase === "game") {
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
     return {

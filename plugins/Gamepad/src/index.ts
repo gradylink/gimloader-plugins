@@ -8,9 +8,16 @@ const normalSpeed = 310;
 api.settings.create([
   {
     type: "toggle",
-    id: "preciseJoysticks",
-    title: "Precise Joystick Inputs",
+    id: "precisePlatformer",
+    title: "Platformer Precise Joystick Inputs",
     description: "Using this invalidates speedruns.",
+    default: true,
+  },
+  {
+    type: "toggle",
+    id: "preciseTopdown",
+    title: "Top Down Precise Joystick Inputs",
+    description: "Using this IS allowed in speedruns.",
     default: true,
   },
   {
@@ -42,6 +49,12 @@ api.settings.create([
     min: 1,
     max: 25,
     step: 1,
+  },
+  {
+    type: "toggle",
+    id: "rumble",
+    title: "Rumble",
+    default: true,
   },
 ]);
 
@@ -107,6 +120,21 @@ questionsObserver.observe(document.body, {
 });
 
 let leftTriggerWasPressed = false;
+
+api.net.on("PROJECTILE_CHANGES", (data) => {
+  if (
+    data.hit.length == 0 ||
+    data.hit[0].hits[0].characterId != GL.stores.phaser.mainCharacter.id ||
+    !gamepad || !gamepad.vibrationActuator || !api.settings.rumble
+  ) return;
+
+  gamepad.vibrationActuator.playEffect("dual-rumble", {
+    startDelay: 0,
+    duration: 100,
+    weakMagnitude: 0.75,
+    strongMagnitude: 0.5,
+  });
+});
 
 api.net.onLoad(() => {
   const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
@@ -361,7 +389,7 @@ api.net.onLoad(() => {
 
       if (
         getMagnitude() > api.settings.deadzone &&
-        api.settings.preciseJoysticks
+        (api.settings.precisePlatformer || api.settings.preciseTopdown)
       ) {
         api.stores.me.movementSpeed = normalSpeed *
           Math.max(
@@ -391,7 +419,7 @@ api.net.onLoad(() => {
     if (
       api.stores.session.mapStyle === "topDown" && gamepad !== null &&
       getMagnitude() > api.settings.deadzone &&
-      api.settings.preciseJoysticks
+      api.settings.preciseTopdown
     ) {
       physicsAngle =
         (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI +
@@ -408,7 +436,8 @@ api.net.onLoad(() => {
 
     if (
       !api.stores.me.inventory.slots.get("energy")?.amount &&
-      !api.plugins.isEnabled("Desynchronize")
+      !api.plugins.isEnabled("Desynchronize") &&
+      api.stores.session.phase === "game"
     ) {
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
