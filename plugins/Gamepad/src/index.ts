@@ -161,7 +161,10 @@ api.net.onLoad(() => {
   originalGetPhysicsInput =
     api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
-    if (!api.stores.me.inventory.slots.get("energy")?.amount) {
+    if (
+      !api.stores.me.inventory.slots.get("energy")?.amount &&
+      !api.plugins.isEnabled("Desynchronize")
+    ) {
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
     if (answeringQuestions) {

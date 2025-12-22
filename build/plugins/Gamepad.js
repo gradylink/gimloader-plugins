@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.5.1
+ * @version 0.5.2
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -112,7 +112,7 @@ api.net.onLoad(() => {
   };
   originalGetPhysicsInput = api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
-    if (!api.stores.me.inventory.slots.get("energy")?.amount) {
+    if (!api.stores.me.inventory.slots.get("energy")?.amount && !api.plugins.isEnabled("Desynchronize")) {
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
     if (answeringQuestions) {
