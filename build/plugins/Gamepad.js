@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.8.1
+ * @version 0.8.2
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -19,11 +19,17 @@ api.settings.create([
     default: true
   },
   {
-    type: "toggle",
+    type: "dropdown",
     id: "preciseTopdown",
     title: "Top Down Precise Joystick Inputs",
-    description: "Using this IS allowed in speedruns.",
-    default: true
+    description: 'Only the "Precise Direction" option is allowed in speedruns.',
+    default: "on",
+    options: [
+      { label: "On", value: "on" },
+      { label: "Off", value: "off" },
+      { label: "Precise Direction", value: "direction" },
+      { label: "Precise Speed", value: "speed" }
+    ]
   },
   {
     type: "toggle",
@@ -275,7 +281,7 @@ api.net.onLoad(() => {
       right ||= gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
       left ||= gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
       down ||= (gamepad?.buttons[13].pressed || gamepad?.axes[1] > api.settings.deadzone) && api.stores.session.mapStyle == "topDown";
-      if (getMagnitude() > api.settings.deadzone && (api.settings.precisePlatformer || api.settings.preciseTopdown)) {
+      if (getMagnitude() > api.settings.deadzone && (api.settings.precisePlatformer || api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "speed")) {
         api.stores.me.movementSpeed = normalSpeed * Math.max(
           getMagnitude(),
           api.plugins.isEnabled("Desynchronize") ? 0 : 0.65
@@ -294,7 +300,7 @@ api.net.onLoad(() => {
       jumpPressed = true;
       down = false;
     }
-    if (api.stores.session.mapStyle === "topDown" && gamepad !== null && getMagnitude() > api.settings.deadzone && api.settings.preciseTopdown) {
+    if (api.stores.session.mapStyle === "topDown" && gamepad !== null && getMagnitude() > api.settings.deadzone && (api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "direction")) {
       physicsAngle = (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI + 360) % 360;
     } else if ((down || jumpPressed || left || right) && !(left && right) && !(down && jumpPressed)) {
       physicsAngle = (Math.atan2(+down - +jumpPressed, +right - +left) * 180 / Math.PI + 360) % 360;

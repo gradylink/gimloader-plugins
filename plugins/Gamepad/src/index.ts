@@ -14,11 +14,17 @@ api.settings.create([
     default: true,
   },
   {
-    type: "toggle",
+    type: "dropdown",
     id: "preciseTopdown",
     title: "Top Down Precise Joystick Inputs",
-    description: "Using this IS allowed in speedruns.",
-    default: true,
+    description: 'Only the "Precise Direction" option is allowed in speedruns.',
+    default: "on",
+    options: [
+      { label: "On", value: "on" },
+      { label: "Off", value: "off" },
+      { label: "Precise Direction", value: "direction" },
+      { label: "Precise Speed", value: "speed" },
+    ],
   },
   {
     type: "toggle",
@@ -391,7 +397,9 @@ api.net.onLoad(() => {
 
       if (
         getMagnitude() > api.settings.deadzone &&
-        (api.settings.precisePlatformer || api.settings.preciseTopdown)
+        (api.settings.precisePlatformer ||
+          api.settings.preciseTopdown == "on" ||
+          api.settings.preciseTopdown == "speed")
       ) {
         api.stores.me.movementSpeed = normalSpeed *
           Math.max(
@@ -421,7 +429,8 @@ api.net.onLoad(() => {
     if (
       api.stores.session.mapStyle === "topDown" && gamepad !== null &&
       getMagnitude() > api.settings.deadzone &&
-      api.settings.preciseTopdown
+      (api.settings.preciseTopdown == "on" ||
+        api.settings.preciseTopdown == "direction")
     ) {
       physicsAngle =
         (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI +
