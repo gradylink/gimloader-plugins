@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.3.0
+ * @version 0.4.0
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -138,6 +138,29 @@ api.net.onLoad(() => {
         api.stores.phaser.scene.worldManager.devices.allDevices.find(
           (d) => d.state.text === "Answer Questions"
         )?.buttonClicked();
+      }
+      if (!inputCooldown) {
+        if (gamepad?.buttons[4].pressed) {
+          api.stores.me.inventory.activeInteractiveSlot--;
+          if (api.stores.me.inventory.activeInteractiveSlot < 0) {
+            api.stores.me.inventory.activeInteractiveSlot = api.stores.me.inventory.slots.size - 1;
+          }
+          api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
+            slotNum: api.stores.me.inventory.activeInteractiveSlot
+          });
+          inputCooldown = true;
+          setTimeout(() => inputCooldown = false, 200);
+        } else if (gamepad?.buttons[5].pressed) {
+          api.stores.me.inventory.activeInteractiveSlot++;
+          if (api.stores.me.inventory.activeInteractiveSlot >= api.stores.me.inventory.slots.size) {
+            api.stores.me.inventory.activeInteractiveSlot = 0;
+          }
+          api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
+            slotNum: api.stores.me.inventory.activeInteractiveSlot
+          });
+          inputCooldown = true;
+          setTimeout(() => inputCooldown = false, 200);
+        }
       }
       jumpPressed ||= (gamepad?.buttons[0].pressed || gamepad?.buttons[1].pressed) && api.stores.session.mapStyle == "platformer" || gamepad?.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone && (api.settings.joystickJump || api.stores.session.mapStyle == "topDown");
       right ||= gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
