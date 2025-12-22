@@ -130,10 +130,6 @@ api.net.onLoad(() => {
     aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
     aimCursor.centerShiftY = verticalCenter - aimCursor.y;
 
-    console.log(
-      api.stores.phaser.mainCharacter.body.x - aimCursor.aimCursorWorldPos.x,
-    );
-
     if (gamepad !== null && gamepad.buttons[7].pressed && !inputCooldown) {
       // Oops this is for placing dynamic stuff, and maybe other actions, haven't done those yet?
       /* api.net.send("CONSUME", {
@@ -165,6 +161,9 @@ api.net.onLoad(() => {
   originalGetPhysicsInput =
     api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
+    if (!api.stores.me.inventory.slots.get("energy")?.amount) {
+      return { angle: null, jump: false, _jumpKeyPressed: false };
+    }
     if (answeringQuestions) {
       if (gamepad !== null) {
         if (gamepad.buttons[1].pressed) {

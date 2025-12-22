@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.5.0
+ * @version 0.5.1
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -97,9 +97,6 @@ api.net.onLoad(() => {
     const verticalCenter = window.innerHeight * aimCursor.scene.resizeManager.usedDpi / 2;
     aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
     aimCursor.centerShiftY = verticalCenter - aimCursor.y;
-    console.log(
-      api.stores.phaser.mainCharacter.body.x - aimCursor.aimCursorWorldPos.x
-    );
     if (gamepad !== null && gamepad.buttons[7].pressed && !inputCooldown) {
       api.stores.network.room.send("FIRE", {
         angle: Math.atan2(
@@ -115,6 +112,9 @@ api.net.onLoad(() => {
   };
   originalGetPhysicsInput = api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
+    if (!api.stores.me.inventory.slots.get("energy")?.amount) {
+      return { angle: null, jump: false, _jumpKeyPressed: false };
+    }
     if (answeringQuestions) {
       if (gamepad !== null) {
         if (gamepad.buttons[1].pressed) {
