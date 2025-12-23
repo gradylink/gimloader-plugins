@@ -247,11 +247,13 @@ api.net.onLoad(() => {
     }
 
     if (
-      document.querySelector(".fa-times, .anticon-close, button:has(.lucide-x)")
+      document.querySelector(
+        ".fa-times, :not(.ant-notification-notice-close) >.anticon-close, button:has(.lucide-x)",
+      )
     ) {
       if (gamepad !== null && gamepad.buttons[1].pressed) {
         (document.querySelector(
-          ".fa-times, .anticon-close, button:has(.lucide-x)",
+          ".fa-times, :not(.ant-notification-notice-close) > .anticon-close, button:has(.lucide-x)",
         ) as HTMLElement)
           .click();
       }

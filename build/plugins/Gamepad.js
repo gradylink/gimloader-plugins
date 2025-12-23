@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.9.0
+ * @version 0.9.1
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -193,10 +193,12 @@ api.net.onLoad(() => {
     if (api.stores.session.gameSession.phase === "results") {
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
-    if (document.querySelector(".fa-times, .anticon-close, button:has(.lucide-x)")) {
+    if (document.querySelector(
+      ".fa-times, :not(.ant-notification-notice-close) >.anticon-close, button:has(.lucide-x)"
+    )) {
       if (gamepad !== null && gamepad.buttons[1].pressed) {
         document.querySelector(
-          ".fa-times, .anticon-close, button:has(.lucide-x)"
+          ".fa-times, :not(.ant-notification-notice-close) > .anticon-close, button:has(.lucide-x)"
         ).click();
       }
       if (!answeringQuestions) {
