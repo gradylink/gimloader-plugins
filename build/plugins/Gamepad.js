@@ -88,7 +88,9 @@ api.rewriter.runInScope("App", (code, run) => {
   const name = code.slice(beforeName, afterName);
   run(`${name}.keyText = "Press LT"; ${name}.keyHoldText = "Press LT & Hold";`);
   api.onStop(() => {
-    run(`${name}.keyText = "Press Enter"; ${name}.keyHoldText = "Press Enter & Hold";`);
+    run(
+      `${name}.keyText = "Press Enter"; ${name}.keyHoldText = "Press Enter & Hold";`
+    );
   });
 });
 var answeringQuestions = false;
