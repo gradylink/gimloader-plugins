@@ -40,7 +40,7 @@ export const initUI = () => {
 };
 
 export const handleUIInput = () => {
-  if (gamepad === null || inputCooldown) return;
+  if (gamepad === null || inputCooldown.value) return;
 
   if (gamepad.buttons[0].pressed) {
     const selectedQuestionText = document.querySelector(

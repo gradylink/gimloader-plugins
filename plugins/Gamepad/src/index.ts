@@ -1,7 +1,7 @@
 import { aimCursorUpdate } from "./aimCursor";
 import { gamepad, initGamepad, updateGamepad } from "./input";
 import { getPhysicsInput as getTopdownPhysicsInput } from "./movement/topdown";
-import { answeringQuestions, handleUIInput } from "./ui";
+import { answeringQuestions, handleUIInput, initUI } from "./ui";
 import { handlePlatformerInput } from "./movement/platformer";
 
 api.settings.create([
@@ -158,3 +158,4 @@ api.onStop(() => {
 });
 
 initGamepad();
+initUI();

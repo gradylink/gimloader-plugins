@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.10.0
+ * @version 0.10.1
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -204,8 +204,19 @@ var updateSelectedAnswer = () => {
     answer.parentElement.style.border = parseInt(answer.getAttribute("position")) == selectedAnswer ? "4px solid white" : "none";
   });
 };
+var initUI = () => {
+  const questionsObserver = new MutationObserver(() => {
+    const wasAnsweringQuestions = answeringQuestions;
+    answeringQuestions = document.querySelector("[answercolors]") != null;
+    if (answeringQuestions && !wasAnsweringQuestions) updateSelectedAnswer();
+  });
+  questionsObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+};
 var handleUIInput = () => {
-  if (gamepad === null || inputCooldown) return;
+  if (gamepad === null || inputCooldown.value) return;
   if (gamepad.buttons[0].pressed) {
     const selectedQuestionText = document.querySelector(
       `[answercolors][position="${selectedAnswer}"]`
@@ -439,3 +450,4 @@ api.onStop(() => {
   }
 });
 initGamepad();
+initUI();
