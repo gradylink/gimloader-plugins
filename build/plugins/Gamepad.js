@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.9.1
+ * @version 0.10.0
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -17,26 +17,26 @@ var initGamepad = () => {
 var updateGamepad = () => {
   gamepad = navigator.getGamepads()[gamepad.index];
 };
-var phaserKeyMap = {
-  up: [
-    Phaser.Input.Keyboard.KeyCodes.UP,
-    Phaser.Input.Keyboard.KeyCodes.W,
-    Phaser.Input.Keyboard.KeyCodes.SPACE
-  ],
-  down: [
-    Phaser.Input.Keyboard.KeyCodes.DOWN,
-    Phaser.Input.Keyboard.KeyCodes.S
-  ],
-  left: [
-    Phaser.Input.Keyboard.KeyCodes.LEFT,
-    Phaser.Input.Keyboard.KeyCodes.A
-  ],
-  right: [
-    Phaser.Input.Keyboard.KeyCodes.RIGHT,
-    Phaser.Input.Keyboard.KeyCodes.D
-  ]
-};
 var keyInputDown = (direction) => {
+  const phaserKeyMap = {
+    up: [
+      Phaser.Input.Keyboard.KeyCodes.UP,
+      Phaser.Input.Keyboard.KeyCodes.W,
+      Phaser.Input.Keyboard.KeyCodes.SPACE
+    ],
+    down: [
+      Phaser.Input.Keyboard.KeyCodes.DOWN,
+      Phaser.Input.Keyboard.KeyCodes.S
+    ],
+    left: [
+      Phaser.Input.Keyboard.KeyCodes.LEFT,
+      Phaser.Input.Keyboard.KeyCodes.A
+    ],
+    right: [
+      Phaser.Input.Keyboard.KeyCodes.RIGHT,
+      Phaser.Input.Keyboard.KeyCodes.D
+    ]
+  };
   for (const keycode of phaserKeyMap[direction]) {
     if (api.stores.phaser.scene.inputManager.keyboard.heldKeys.has(keycode)) {
       return true;
@@ -124,26 +124,15 @@ var aimCursorUpdate = () => {
 // plugins/Gamepad/src/movement/topdown.ts
 var getMagnitude = () => {
   if (gamepad === null) return 0;
-  if (api.stores.session.mapStyle == "platformer") {
-    return Math.abs(gamepad.axes[0]);
-  }
   return Math.sqrt(gamepad.axes[0] ** 2 + gamepad.axes[1] ** 2);
 };
-var jumped = false;
 var normalSpeed = 310;
 var getPhysicsInput = () => {
-  let jumpPressed = keyInputDown("up") && api.settings.keyboard;
+  let up = keyInputDown("up") && api.settings.keyboard;
   let right = keyInputDown("right") && api.settings.keyboard;
   let left = keyInputDown("left") && api.settings.keyboard;
-  let down = keyInputDown("down") && api.settings.keyboard && api.stores.session.mapStyle == "topDown";
+  let down = keyInputDown("down") && api.settings.keyboard;
   if (gamepad !== null) {
-    if (gamepad?.buttons[3].pressed) {
-      api.stores.phaser.scene.worldManager.devices.allDevices.find(
-        (d) => d.state.text === "Answer Questions"
-      )?.buttonClicked();
-    } else if (gamepad?.buttons[8].pressed) {
-      document.querySelector('[aria-label="Leaderboard"]').click();
-    }
     if (!inputCooldown) {
       if (gamepad?.buttons[4].pressed) {
         api.stores.me.inventory.activeInteractiveSlot--;
@@ -167,11 +156,11 @@ var getPhysicsInput = () => {
         setTimeout(() => inputCooldown.value = false, 200);
       }
     }
-    jumpPressed ||= (gamepad?.buttons[0].pressed || gamepad?.buttons[1].pressed) && api.stores.session.mapStyle == "platformer" || gamepad?.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone && (api.settings.joystickJump || api.stores.session.mapStyle == "topDown");
+    up ||= gamepad?.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone;
     right ||= gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
     left ||= gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
-    down ||= (gamepad?.buttons[13].pressed || gamepad?.axes[1] > api.settings.deadzone) && api.stores.session.mapStyle == "topDown";
-    if (getMagnitude() > api.settings.deadzone && (api.settings.precisePlatformer || api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "speed")) {
+    down ||= gamepad?.buttons[13].pressed || gamepad?.axes[1] > api.settings.deadzone;
+    if (getMagnitude() > api.settings.deadzone && (api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "speed")) {
       api.stores.me.movementSpeed = normalSpeed * Math.max(
         getMagnitude(),
         api.plugins.isEnabled("Desynchronize") ? 0 : 0.65
@@ -181,27 +170,25 @@ var getPhysicsInput = () => {
       api.stores.me.movementSpeed = normalSpeed;
     }
   }
-  const shouldJump = jumpPressed && !jumped;
-  jumped = jumpPressed;
   let physicsAngle = null;
-  if (left && right && (jumpPressed || down)) {
+  if (left && right && (up || down)) {
     left = true;
     right = false;
-    jumpPressed = true;
+    up = true;
     down = false;
   }
-  if (api.stores.session.mapStyle === "topDown" && gamepad !== null && getMagnitude() > api.settings.deadzone && (api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "direction")) {
+  if (gamepad !== null && getMagnitude() > api.settings.deadzone && (api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "direction")) {
     physicsAngle = (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI + 360) % 360;
-  } else if ((down || jumpPressed || left || right) && !(left && right) && !(down && jumpPressed)) {
-    physicsAngle = (Math.atan2(+down - +jumpPressed, +right - +left) * 180 / Math.PI + 360) % 360;
+  } else if ((down || up || left || right) && !(left && right) && !(down && up)) {
+    physicsAngle = (Math.atan2(+down - +up, +right - +left) * 180 / Math.PI + 360) % 360;
   }
   if (!api.stores.me.inventory.slots.get("energy")?.amount && !api.plugins.isEnabled("Desynchronize") && api.stores.session.phase === "game") {
     return { angle: null, jump: false, _jumpKeyPressed: false };
   }
   return {
     angle: physicsAngle,
-    jump: api.stores.session.mapStyle == "platformer" ? shouldJump : false,
-    _jumpKeyPressed: api.stores.session.mapStyle == "platformer" ? jumpPressed : false
+    jump: false,
+    _jumpKeyPressed: false
   };
 };
 
@@ -276,6 +263,59 @@ api.rewriter.runInScope("App", (code, run) => {
     );
   });
 });
+
+// plugins/Gamepad/src/movement/platformer.ts
+var normalSpeed2 = 310;
+var previousFrame = {
+  left: false,
+  right: false,
+  jump: false
+};
+var handlePlatformerInput = () => {
+  if (gamepad === null) return;
+  const left = gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
+  const right = gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
+  const jump = gamepad.buttons[0].pressed || gamepad.buttons[1].pressed || gamepad.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone && api.settings.joystickJump;
+  if (!previousFrame.left && left) {
+    api.stores.phaser.scene.inputManager.keyboard.heldKeys.add(
+      Phaser.Input.Keyboard.KeyCodes.LEFT
+    );
+  } else if (previousFrame.left && !left) {
+    api.stores.phaser.scene.inputManager.keyboard.heldKeys.delete(
+      Phaser.Input.Keyboard.KeyCodes.LEFT
+    );
+  }
+  if (!previousFrame.right && right) {
+    api.stores.phaser.scene.inputManager.keyboard.heldKeys.add(
+      Phaser.Input.Keyboard.KeyCodes.RIGHT
+    );
+  } else if (previousFrame.right && !right) {
+    api.stores.phaser.scene.inputManager.keyboard.heldKeys.delete(
+      Phaser.Input.Keyboard.KeyCodes.RIGHT
+    );
+  }
+  if (!previousFrame.jump && jump) {
+    api.stores.phaser.scene.inputManager.keyboard.heldKeys.add(
+      Phaser.Input.Keyboard.KeyCodes.UP
+    );
+  } else if (previousFrame.jump && !jump) {
+    api.stores.phaser.scene.inputManager.keyboard.heldKeys.delete(
+      Phaser.Input.Keyboard.KeyCodes.UP
+    );
+  }
+  if (gamepad.axes[0] > api.settings.deadzone && api.settings.precisePlatformer) {
+    api.stores.me.movementSpeed = normalSpeed2 * Math.max(
+      gamepad.axes[0],
+      api.plugins.isEnabled("Desynchronize") ? 0 : 0.65
+      /* Slowest allowed speed based on my testing. */
+    );
+  } else {
+    api.stores.me.movementSpeed = normalSpeed2;
+  }
+  previousFrame.left = left;
+  previousFrame.right = right;
+  previousFrame.jump = jump;
+};
 
 // plugins/Gamepad/src/index.ts
 api.settings.create([
@@ -373,6 +413,19 @@ api.net.onLoad(() => {
     if (answeringQuestions) {
       handleUIInput();
       return { angle: null, jump: false, _jumpKeyPressed: false };
+    }
+    if (gamepad !== null) {
+      if (gamepad.buttons[3].pressed) {
+        api.stores.phaser.scene.worldManager.devices.allDevices.find(
+          (d) => d.state.text === "Answer Questions"
+        )?.buttonClicked();
+      } else if (gamepad.buttons[8].pressed) {
+        document.querySelector('[aria-label="Leaderboard"]').click();
+      }
+    }
+    if (api.stores.session.mapStyle === "platformer") {
+      handlePlatformerInput();
+      return originalGetPhysicsInput();
     }
     return getPhysicsInput();
   };

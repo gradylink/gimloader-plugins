@@ -18,34 +18,34 @@ type PhaserKeyCode = typeof Phaser.Input.Keyboard.KeyCodes[
   keyof typeof Phaser.Input.Keyboard.KeyCodes
 ];
 
-const phaserKeyMap: {
-  up: PhaserKeyCode[];
-  down: PhaserKeyCode[];
-  left: PhaserKeyCode[];
-  right: PhaserKeyCode[];
-} = {
-  up: [
-    Phaser.Input.Keyboard.KeyCodes.UP,
-    Phaser.Input.Keyboard.KeyCodes.W,
-    Phaser.Input.Keyboard.KeyCodes.SPACE,
-  ],
-  down: [
-    Phaser.Input.Keyboard.KeyCodes.DOWN,
-    Phaser.Input.Keyboard.KeyCodes.S,
-  ],
-  left: [
-    Phaser.Input.Keyboard.KeyCodes.LEFT,
-    Phaser.Input.Keyboard.KeyCodes.A,
-  ],
-  right: [
-    Phaser.Input.Keyboard.KeyCodes.RIGHT,
-    Phaser.Input.Keyboard.KeyCodes.D,
-  ],
-};
-
 export const keyInputDown = (
   direction: "up" | "down" | "left" | "right",
 ): boolean => {
+  const phaserKeyMap: {
+    up: PhaserKeyCode[];
+    down: PhaserKeyCode[];
+    left: PhaserKeyCode[];
+    right: PhaserKeyCode[];
+  } = {
+    up: [
+      Phaser.Input.Keyboard.KeyCodes.UP,
+      Phaser.Input.Keyboard.KeyCodes.W,
+      Phaser.Input.Keyboard.KeyCodes.SPACE,
+    ],
+    down: [
+      Phaser.Input.Keyboard.KeyCodes.DOWN,
+      Phaser.Input.Keyboard.KeyCodes.S,
+    ],
+    left: [
+      Phaser.Input.Keyboard.KeyCodes.LEFT,
+      Phaser.Input.Keyboard.KeyCodes.A,
+    ],
+    right: [
+      Phaser.Input.Keyboard.KeyCodes.RIGHT,
+      Phaser.Input.Keyboard.KeyCodes.D,
+    ],
+  };
+
   for (const keycode of phaserKeyMap[direction]) {
     if (api.stores.phaser.scene.inputManager.keyboard.heldKeys.has(keycode)) {
       return true;

@@ -1,7 +1,8 @@
 import { aimCursorUpdate } from "./aimCursor";
-import { gamepad, initGamepad, inputCooldown, updateGamepad } from "./input";
-import { getPhysicsInput } from "./movement/topdown";
+import { gamepad, initGamepad, updateGamepad } from "./input";
+import { getPhysicsInput as getTopdownPhysicsInput } from "./movement/topdown";
 import { answeringQuestions, handleUIInput } from "./ui";
+import { handlePlatformerInput } from "./movement/platformer";
 
 api.settings.create([
   {
@@ -125,7 +126,23 @@ api.net.onLoad(() => {
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
 
-    return getPhysicsInput();
+    if (gamepad !== null) {
+      if (gamepad.buttons[3].pressed) {
+        api.stores.phaser.scene.worldManager.devices.allDevices.find((d) =>
+          d.state.text === "Answer Questions"
+        )?.buttonClicked();
+      } else if (gamepad.buttons[8].pressed) {
+        (document.querySelector('[aria-label="Leaderboard"]') as HTMLDivElement)
+          .click();
+      }
+    }
+
+    if (api.stores.session.mapStyle === "platformer") {
+      handlePlatformerInput();
+      return originalGetPhysicsInput!();
+    }
+
+    return getTopdownPhysicsInput();
   };
 });
 
