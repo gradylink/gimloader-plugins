@@ -6,10 +6,278 @@
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
-// plugins/Gamepad/src/index.ts
+// plugins/Gamepad/src/input.ts
 var gamepad = navigator.getGamepads().length > 0 ? navigator.getGamepads()[0] : null;
+var inputCooldown = { value: false };
+var initGamepad = () => {
+  window.addEventListener("gamepadconnected", (e) => {
+    gamepad = e.gamepad;
+  });
+};
+var updateGamepad = () => {
+  gamepad = navigator.getGamepads()[gamepad.index];
+};
+var phaserKeyMap = {
+  up: [
+    Phaser.Input.Keyboard.KeyCodes.UP,
+    Phaser.Input.Keyboard.KeyCodes.W,
+    Phaser.Input.Keyboard.KeyCodes.SPACE
+  ],
+  down: [
+    Phaser.Input.Keyboard.KeyCodes.DOWN,
+    Phaser.Input.Keyboard.KeyCodes.S
+  ],
+  left: [
+    Phaser.Input.Keyboard.KeyCodes.LEFT,
+    Phaser.Input.Keyboard.KeyCodes.A
+  ],
+  right: [
+    Phaser.Input.Keyboard.KeyCodes.RIGHT,
+    Phaser.Input.Keyboard.KeyCodes.D
+  ]
+};
+var keyInputDown = (direction) => {
+  for (const keycode of phaserKeyMap[direction]) {
+    if (api.stores.phaser.scene.inputManager.keyboard.heldKeys.has(keycode)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+// plugins/Gamepad/src/aimCursor.ts
+var leftTriggerWasPressed = false;
+var aimCursorUpdate = () => {
+  const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
+  if (gamepad !== null) {
+    if (Math.abs(gamepad.axes[2]) > api.settings.deadzone) {
+      aimCursor.x += gamepad.axes[2] * api.settings.lookSensitivity;
+    }
+    if (Math.abs(gamepad.axes[3]) > api.settings.deadzone) {
+      aimCursor.y += gamepad.axes[3] * api.settings.lookSensitivity;
+    }
+  }
+  aimCursor.aimCursor.x = aimCursor.x;
+  aimCursor.aimCursor.y = aimCursor.y;
+  api.stores.phaser.scene.input.mousePointer.x = aimCursor.x;
+  api.stores.phaser.scene.input.mousePointer.y = aimCursor.y;
+  aimCursor.aimCursor.alpha = 1;
+  aimCursor.aimCursor.visible = aimCursor.scene.game.canvas.style.cursor == "none";
+  aimCursor.aimCursorWorldPos = aimCursor.scene.cameraHelper.mainCamera.getWorldPoint(
+    aimCursor.x ** aimCursor.scene.resizeManager.usedDpi,
+    aimCursor.y ** aimCursor.scene.resizeManager.usedDpi
+  );
+  const horizontalCenter = window.innerWidth * aimCursor.scene.resizeManager.usedDpi / 2;
+  const verticalCenter = window.innerHeight * aimCursor.scene.resizeManager.usedDpi / 2;
+  aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
+  aimCursor.centerShiftY = verticalCenter - aimCursor.y;
+  if (gamepad === null) return;
+  api.stores.phaser.scene.input.mousePointer.isDown = gamepad.buttons[7].pressed || api.stores.phaser.scene.inputManager.mouse.isHoldingDown;
+  if (gamepad.buttons[6].pressed && !api.stores.me.inventory.interactiveSlots.get(
+    api.stores.me.inventory.activeInteractiveSlot.toString()
+  )?.waiting) {
+    const devices = api.stores.phaser.scene.worldManager.devices;
+    const body = api.stores.phaser.mainCharacter.body;
+    const device = devices.interactives.findClosestInteractiveDevice(
+      devices.devicesInView,
+      body.x,
+      body.y
+    );
+    if (device) {
+      if (api.plugins.isEnabled("InstantUse")) {
+        device.interactiveZones.onInteraction?.();
+      } else {
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            bubbles: true,
+            cancelable: true
+          })
+        );
+      }
+    } else {
+      api.net.send("CONSUME", {
+        "x": Math.round(
+          api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5
+        ),
+        "y": Math.round(
+          api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5
+        )
+      });
+    }
+  } else if (leftTriggerWasPressed) {
+    document.dispatchEvent(
+      new KeyboardEvent("keyup", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        bubbles: true,
+        cancelable: true
+      })
+    );
+  }
+  leftTriggerWasPressed = gamepad.buttons[6].pressed;
+};
+
+// plugins/Gamepad/src/movement/topdown.ts
+var getMagnitude = () => {
+  if (gamepad === null) return 0;
+  if (api.stores.session.mapStyle == "platformer") {
+    return Math.abs(gamepad.axes[0]);
+  }
+  return Math.sqrt(gamepad.axes[0] ** 2 + gamepad.axes[1] ** 2);
+};
 var jumped = false;
 var normalSpeed = 310;
+var getPhysicsInput = () => {
+  let jumpPressed = keyInputDown("up") && api.settings.keyboard;
+  let right = keyInputDown("right") && api.settings.keyboard;
+  let left = keyInputDown("left") && api.settings.keyboard;
+  let down = keyInputDown("down") && api.settings.keyboard && api.stores.session.mapStyle == "topDown";
+  if (gamepad !== null) {
+    if (gamepad?.buttons[3].pressed) {
+      api.stores.phaser.scene.worldManager.devices.allDevices.find(
+        (d) => d.state.text === "Answer Questions"
+      )?.buttonClicked();
+    } else if (gamepad?.buttons[8].pressed) {
+      document.querySelector('[aria-label="Leaderboard"]').click();
+    }
+    if (!inputCooldown) {
+      if (gamepad?.buttons[4].pressed) {
+        api.stores.me.inventory.activeInteractiveSlot--;
+        if (api.stores.me.inventory.activeInteractiveSlot < 0) {
+          api.stores.me.inventory.activeInteractiveSlot = api.stores.me.inventory.slots.size - 1;
+        }
+        api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
+          slotNum: api.stores.me.inventory.activeInteractiveSlot
+        });
+        inputCooldown.value = true;
+        setTimeout(() => inputCooldown.value = false, 200);
+      } else if (gamepad?.buttons[5].pressed) {
+        api.stores.me.inventory.activeInteractiveSlot++;
+        if (api.stores.me.inventory.activeInteractiveSlot >= api.stores.me.inventory.slots.size) {
+          api.stores.me.inventory.activeInteractiveSlot = 0;
+        }
+        api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
+          slotNum: api.stores.me.inventory.activeInteractiveSlot
+        });
+        inputCooldown.value = true;
+        setTimeout(() => inputCooldown.value = false, 200);
+      }
+    }
+    jumpPressed ||= (gamepad?.buttons[0].pressed || gamepad?.buttons[1].pressed) && api.stores.session.mapStyle == "platformer" || gamepad?.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone && (api.settings.joystickJump || api.stores.session.mapStyle == "topDown");
+    right ||= gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
+    left ||= gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
+    down ||= (gamepad?.buttons[13].pressed || gamepad?.axes[1] > api.settings.deadzone) && api.stores.session.mapStyle == "topDown";
+    if (getMagnitude() > api.settings.deadzone && (api.settings.precisePlatformer || api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "speed")) {
+      api.stores.me.movementSpeed = normalSpeed * Math.max(
+        getMagnitude(),
+        api.plugins.isEnabled("Desynchronize") ? 0 : 0.65
+        /* Slowest allowed speed based on my testing. */
+      );
+    } else {
+      api.stores.me.movementSpeed = normalSpeed;
+    }
+  }
+  const shouldJump = jumpPressed && !jumped;
+  jumped = jumpPressed;
+  let physicsAngle = null;
+  if (left && right && (jumpPressed || down)) {
+    left = true;
+    right = false;
+    jumpPressed = true;
+    down = false;
+  }
+  if (api.stores.session.mapStyle === "topDown" && gamepad !== null && getMagnitude() > api.settings.deadzone && (api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "direction")) {
+    physicsAngle = (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI + 360) % 360;
+  } else if ((down || jumpPressed || left || right) && !(left && right) && !(down && jumpPressed)) {
+    physicsAngle = (Math.atan2(+down - +jumpPressed, +right - +left) * 180 / Math.PI + 360) % 360;
+  }
+  if (!api.stores.me.inventory.slots.get("energy")?.amount && !api.plugins.isEnabled("Desynchronize") && api.stores.session.phase === "game") {
+    return { angle: null, jump: false, _jumpKeyPressed: false };
+  }
+  return {
+    angle: physicsAngle,
+    jump: api.stores.session.mapStyle == "platformer" ? shouldJump : false,
+    _jumpKeyPressed: api.stores.session.mapStyle == "platformer" ? jumpPressed : false
+  };
+};
+
+// plugins/Gamepad/src/ui.ts
+var answeringQuestions = false;
+var selectedAnswer = 0 /* TopLeft */;
+var updateSelectedAnswer = () => {
+  inputCooldown.value = true;
+  setTimeout(() => inputCooldown.value = false, 100);
+  if (selectedAnswer < 0) selectedAnswer = 0;
+  else if (selectedAnswer > 3) selectedAnswer = 3;
+  document.querySelectorAll("[answercolors]").forEach((answer) => {
+    answer.parentElement.style.border = parseInt(answer.getAttribute("position")) == selectedAnswer ? "4px solid white" : "none";
+  });
+};
+var handleUIInput = () => {
+  if (gamepad === null || inputCooldown) return;
+  if (gamepad.buttons[0].pressed) {
+    const selectedQuestionText = document.querySelector(
+      `[answercolors][position="${selectedAnswer}"]`
+    )?.querySelector("span")?.textContent;
+    const answer = JSON.parse(
+      api.stores.phaser.scene.worldManager.devices.allDevices.find((d) => typeof d.state.questions == "string")?.state.questions
+    ).find(
+      (question) => question._id == api.stores.me.deviceUI.current.props.currentQuestionId
+    )?.answers.find((answer2) => answer2.text == selectedQuestionText);
+    if (answer?.correct) {
+      api.notification.success({ message: "Correct!" });
+      api.net.send("MESSAGE_FOR_DEVICE", {
+        key: "answered",
+        deviceId: api.stores.me.deviceUI.current.deviceId,
+        data: {
+          answer: answer._id
+        }
+      });
+    } else {
+      api.notification.error({ message: "Incorrect!" });
+    }
+    document.querySelector(".anticon-close").click();
+    api.stores.phaser.scene.worldManager.devices.allDevices.find(
+      (d) => d.state.text === "Answer Questions"
+    )?.buttonClicked();
+    inputCooldown.value = true;
+    setTimeout(() => inputCooldown.value = false, 350);
+  }
+  if (gamepad.buttons[12].pressed || gamepad.axes[1] < -api.settings.deadzone) {
+    selectedAnswer -= 2;
+    updateSelectedAnswer();
+  }
+  if (gamepad.buttons[13].pressed || gamepad.axes[1] > api.settings.deadzone) {
+    selectedAnswer += 2;
+    updateSelectedAnswer();
+  }
+  if (gamepad.buttons[15].pressed || gamepad.axes[0] > api.settings.deadzone) {
+    selectedAnswer++;
+    updateSelectedAnswer();
+  }
+  if (gamepad.buttons[14].pressed || gamepad.axes[0] < -api.settings.deadzone) {
+    selectedAnswer--;
+    updateSelectedAnswer();
+  }
+};
+api.rewriter.runInScope("App", (code, run) => {
+  if (!code.includes("Press Enter")) return;
+  const afterName = code.indexOf('={tapText:"Tap"');
+  const beforeName = code.lastIndexOf(",", afterName) + 1;
+  const name = code.slice(beforeName, afterName);
+  run(`${name}.keyText = "Press LT"; ${name}.keyHoldText = "Press LT & Hold";`);
+  api.onStop(() => {
+    run(
+      `${name}.keyText = "Press Enter"; ${name}.keyHoldText = "Press Enter & Hold";`
+    );
+  });
+});
+
+// plugins/Gamepad/src/index.ts
 api.settings.create([
   {
     type: "toggle",
@@ -69,52 +337,8 @@ api.settings.create([
     description: "Keep in mind some browsers/controllers do not support this setting."
   }
 ]);
-var keys = /* @__PURE__ */ new Set();
-window.addEventListener("keydown", (e) => keys.add(e.code));
-window.addEventListener("keyup", (e) => keys.delete(e.code));
 var originalGetPhysicsInput = null;
 var originalAimCursorUpdate = null;
-var getMagnitude = () => {
-  if (gamepad === null) return 0;
-  if (api.stores.session.mapStyle == "platformer") {
-    return Math.abs(gamepad.axes[0]);
-  }
-  return Math.sqrt(gamepad.axes[0] ** 2 + gamepad.axes[1] ** 2);
-};
-api.rewriter.runInScope("App", (code, run) => {
-  if (!code.includes("Press Enter")) return;
-  const afterName = code.indexOf('={tapText:"Tap"');
-  const beforeName = code.lastIndexOf(",", afterName) + 1;
-  const name = code.slice(beforeName, afterName);
-  run(`${name}.keyText = "Press LT"; ${name}.keyHoldText = "Press LT & Hold";`);
-  api.onStop(() => {
-    run(
-      `${name}.keyText = "Press Enter"; ${name}.keyHoldText = "Press Enter & Hold";`
-    );
-  });
-});
-var answeringQuestions = false;
-var selectedAnswer = 0 /* TopLeft */;
-var inputCooldown = false;
-var updateSelectedAnswer = () => {
-  inputCooldown = true;
-  setTimeout(() => inputCooldown = false, 100);
-  if (selectedAnswer < 0) selectedAnswer = 0;
-  else if (selectedAnswer > 3) selectedAnswer = 3;
-  document.querySelectorAll("[answercolors]").forEach((answer) => {
-    answer.parentElement.style.border = parseInt(answer.getAttribute("position")) == selectedAnswer ? "4px solid white" : "none";
-  });
-};
-var questionsObserver = new MutationObserver(() => {
-  const wasAnsweringQuestions = answeringQuestions;
-  answeringQuestions = document.querySelector("[answercolors]") != null;
-  if (answeringQuestions && !wasAnsweringQuestions) updateSelectedAnswer();
-});
-questionsObserver.observe(document.body, {
-  childList: true,
-  subtree: true
-});
-var leftTriggerWasPressed = false;
 api.net.on("PROJECTILE_CHANGES", (data) => {
   if (data.hit.length == 0 || data.hit[0].hits[0].characterId != GL.stores.phaser.mainCharacter.id || !gamepad || !gamepad.vibrationActuator || !api.settings.rumble) return;
   gamepad.vibrationActuator.playEffect("dual-rumble", {
@@ -127,84 +351,13 @@ api.net.on("PROJECTILE_CHANGES", (data) => {
 api.net.onLoad(() => {
   const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
   originalAimCursorUpdate = aimCursor.update;
-  aimCursor.update = () => {
-    if (gamepad !== null) {
-      if (Math.abs(gamepad.axes[2]) > api.settings.deadzone) {
-        aimCursor.x += gamepad.axes[2] * api.settings.lookSensitivity;
-      }
-      if (Math.abs(gamepad.axes[3]) > api.settings.deadzone) {
-        aimCursor.y += gamepad.axes[3] * api.settings.lookSensitivity;
-      }
-    }
-    aimCursor.aimCursor.x = aimCursor.x;
-    aimCursor.aimCursor.y = aimCursor.y;
-    api.stores.phaser.scene.input.mousePointer.x = aimCursor.x;
-    api.stores.phaser.scene.input.mousePointer.y = aimCursor.y;
-    aimCursor.aimCursor.alpha = 1;
-    aimCursor.aimCursor.visible = aimCursor.scene.game.canvas.style.cursor == "none";
-    aimCursor.aimCursorWorldPos = aimCursor.scene.cameraHelper.mainCamera.getWorldPoint(
-      aimCursor.x ** aimCursor.scene.resizeManager.usedDpi,
-      aimCursor.y ** aimCursor.scene.resizeManager.usedDpi
-    );
-    const horizontalCenter = window.innerWidth * aimCursor.scene.resizeManager.usedDpi / 2;
-    const verticalCenter = window.innerHeight * aimCursor.scene.resizeManager.usedDpi / 2;
-    aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
-    aimCursor.centerShiftY = verticalCenter - aimCursor.y;
-    if (gamepad !== null) {
-      api.stores.phaser.scene.input.mousePointer.isDown = gamepad.buttons[7].pressed || api.stores.phaser.scene.inputManager.mouse.isHoldingDown;
-      if (gamepad.buttons[6].pressed && !api.stores.me.inventory.interactiveSlots.get(
-        api.stores.me.inventory.activeInteractiveSlot.toString()
-      )?.waiting) {
-        const devices = api.stores.phaser.scene.worldManager.devices;
-        const body = api.stores.phaser.mainCharacter.body;
-        const device = devices.interactives.findClosestInteractiveDevice(
-          devices.devicesInView,
-          body.x,
-          body.y
-        );
-        if (device) {
-          if (api.plugins.isEnabled("InstantUse")) {
-            device.interactiveZones.onInteraction?.();
-          } else {
-            document.dispatchEvent(
-              new KeyboardEvent("keydown", {
-                key: "Enter",
-                code: "Enter",
-                keyCode: 13,
-                bubbles: true,
-                cancelable: true
-              })
-            );
-          }
-        } else {
-          api.net.send("CONSUME", {
-            "x": Math.round(
-              api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5
-            ),
-            "y": Math.round(
-              api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5
-            )
-          });
-        }
-      } else if (leftTriggerWasPressed) {
-        document.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            bubbles: true,
-            cancelable: true
-          })
-        );
-      }
-      leftTriggerWasPressed = gamepad.buttons[6].pressed;
-    }
-  };
+  aimCursor.update = () => aimCursorUpdate();
   originalGetPhysicsInput = api.stores.phaser.scene.inputManager.getPhysicsInput;
   api.stores.phaser.scene.inputManager.getPhysicsInput = () => {
     if (api.stores.session.gameSession.phase === "results") {
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
+    if (gamepad !== null) updateGamepad();
     if (document.querySelector(
       ".fa-times, :not(.ant-notification-notice-close) >.anticon-close, button:has(.lucide-x)"
     )) {
@@ -218,128 +371,10 @@ api.net.onLoad(() => {
       }
     }
     if (answeringQuestions) {
-      if (gamepad !== null) {
-        if (!inputCooldown) {
-          if (gamepad.buttons[0].pressed) {
-            const selectedQuestionText = document.querySelector(
-              `[answercolors][position="${selectedAnswer}"]`
-            )?.querySelector("span")?.textContent;
-            const answer = JSON.parse(
-              api.stores.phaser.scene.worldManager.devices.allDevices.find((d) => typeof d.state.questions == "string")?.state.questions
-            ).find(
-              (question) => question._id == api.stores.me.deviceUI.current.props.currentQuestionId
-            )?.answers.find((answer2) => answer2.text == selectedQuestionText);
-            if (answer?.correct) {
-              api.notification.success({ message: "Correct!" });
-              api.net.send("MESSAGE_FOR_DEVICE", {
-                key: "answered",
-                deviceId: api.stores.me.deviceUI.current.deviceId,
-                data: {
-                  answer: answer._id
-                }
-              });
-            } else {
-              api.notification.error({ message: "Incorrect!" });
-            }
-            document.querySelector(".anticon-close").click();
-            api.stores.phaser.scene.worldManager.devices.allDevices.find(
-              (d) => d.state.text === "Answer Questions"
-            )?.buttonClicked();
-            inputCooldown = true;
-            setTimeout(() => inputCooldown = false, 350);
-          }
-          if (gamepad.buttons[12].pressed || gamepad.axes[1] < -api.settings.deadzone) {
-            selectedAnswer -= 2;
-            updateSelectedAnswer();
-          }
-          if (gamepad.buttons[13].pressed || gamepad.axes[1] > api.settings.deadzone) {
-            selectedAnswer += 2;
-            updateSelectedAnswer();
-          }
-          if (gamepad.buttons[15].pressed || gamepad.axes[0] > api.settings.deadzone) {
-            selectedAnswer++;
-            updateSelectedAnswer();
-          }
-          if (gamepad.buttons[14].pressed || gamepad.axes[0] < -api.settings.deadzone) {
-            selectedAnswer--;
-            updateSelectedAnswer();
-          }
-        }
-      }
+      handleUIInput();
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
-    let jumpPressed = (keys.has("KeyW") || keys.has("ArrowUp") || keys.has("Space")) && api.settings.keyboard;
-    let right = (keys.has("KeyD") || keys.has("ArrowRight")) && api.settings.keyboard;
-    let left = (keys.has("KeyA") || keys.has("ArrowLeft")) && api.settings.keyboard;
-    let down = (keys.has("KeyS") || keys.has("ArrowDown")) && api.settings.keyboard && api.stores.session.mapStyle == "topDown";
-    if (gamepad !== null) {
-      gamepad = navigator.getGamepads()[gamepad.index];
-      if (gamepad?.buttons[3].pressed) {
-        api.stores.phaser.scene.worldManager.devices.allDevices.find(
-          (d) => d.state.text === "Answer Questions"
-        )?.buttonClicked();
-      } else if (gamepad?.buttons[8].pressed) {
-        document.querySelector('[aria-label="Leaderboard"]').click();
-      }
-      if (!inputCooldown) {
-        if (gamepad?.buttons[4].pressed) {
-          api.stores.me.inventory.activeInteractiveSlot--;
-          if (api.stores.me.inventory.activeInteractiveSlot < 0) {
-            api.stores.me.inventory.activeInteractiveSlot = api.stores.me.inventory.slots.size - 1;
-          }
-          api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
-            slotNum: api.stores.me.inventory.activeInteractiveSlot
-          });
-          inputCooldown = true;
-          setTimeout(() => inputCooldown = false, 200);
-        } else if (gamepad?.buttons[5].pressed) {
-          api.stores.me.inventory.activeInteractiveSlot++;
-          if (api.stores.me.inventory.activeInteractiveSlot >= api.stores.me.inventory.slots.size) {
-            api.stores.me.inventory.activeInteractiveSlot = 0;
-          }
-          api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
-            slotNum: api.stores.me.inventory.activeInteractiveSlot
-          });
-          inputCooldown = true;
-          setTimeout(() => inputCooldown = false, 200);
-        }
-      }
-      jumpPressed ||= (gamepad?.buttons[0].pressed || gamepad?.buttons[1].pressed) && api.stores.session.mapStyle == "platformer" || gamepad?.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone && (api.settings.joystickJump || api.stores.session.mapStyle == "topDown");
-      right ||= gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
-      left ||= gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
-      down ||= (gamepad?.buttons[13].pressed || gamepad?.axes[1] > api.settings.deadzone) && api.stores.session.mapStyle == "topDown";
-      if (getMagnitude() > api.settings.deadzone && (api.settings.precisePlatformer || api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "speed")) {
-        api.stores.me.movementSpeed = normalSpeed * Math.max(
-          getMagnitude(),
-          api.plugins.isEnabled("Desynchronize") ? 0 : 0.65
-          /* Slowest allowed speed based on my testing. */
-        );
-      } else {
-        api.stores.me.movementSpeed = normalSpeed;
-      }
-    }
-    const shouldJump = jumpPressed && !jumped;
-    jumped = jumpPressed;
-    let physicsAngle = null;
-    if (left && right && (jumpPressed || down)) {
-      left = true;
-      right = false;
-      jumpPressed = true;
-      down = false;
-    }
-    if (api.stores.session.mapStyle === "topDown" && gamepad !== null && getMagnitude() > api.settings.deadzone && (api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "direction")) {
-      physicsAngle = (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI + 360) % 360;
-    } else if ((down || jumpPressed || left || right) && !(left && right) && !(down && jumpPressed)) {
-      physicsAngle = (Math.atan2(+down - +jumpPressed, +right - +left) * 180 / Math.PI + 360) % 360;
-    }
-    if (!api.stores.me.inventory.slots.get("energy")?.amount && !api.plugins.isEnabled("Desynchronize") && api.stores.session.phase === "game") {
-      return { angle: null, jump: false, _jumpKeyPressed: false };
-    }
-    return {
-      angle: physicsAngle,
-      jump: api.stores.session.mapStyle == "platformer" ? shouldJump : false,
-      _jumpKeyPressed: api.stores.session.mapStyle == "platformer" ? jumpPressed : false
-    };
+    return getPhysicsInput();
   };
 });
 api.onStop(() => {
@@ -350,6 +385,4 @@ api.onStop(() => {
     api.stores.phaser.scene.inputManager.aimCursor.update = originalAimCursorUpdate;
   }
 });
-window.addEventListener("gamepadconnected", (e) => {
-  gamepad = e.gamepad;
-});
+initGamepad();
