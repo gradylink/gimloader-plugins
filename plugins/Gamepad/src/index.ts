@@ -180,11 +180,7 @@ api.settings.create([
 ]);
 
 let originalGetPhysicsInput:
-  | (() => {
-    angle: number | null;
-    jump: boolean;
-    _jumpKeyPressed: boolean;
-  })
+  | (() => Gimloader.Stores.TickInput)
   | null = null;
 
 let originalAimCursorUpdate: (() => void) | null = null;

@@ -29,6 +29,11 @@ export const aimCursorUpdate = () => {
       aimCursor.y ** aimCursor.scene.resizeManager.usedDpi,
     );
 
+  api.stores.phaser.scene.inputManager.mouse.worldX =
+    aimCursor.aimCursorWorldPos.x;
+  api.stores.phaser.scene.inputManager.mouse.worldY =
+    aimCursor.aimCursorWorldPos.y;
+
   const horizontalCenter = window.innerWidth *
     aimCursor.scene.resizeManager.usedDpi / 2;
   const verticalCenter = window.innerHeight *
@@ -76,10 +81,10 @@ export const aimCursorUpdate = () => {
     } else {
       api.net.send("CONSUME", {
         "x": Math.round(
-          api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5,
+          aimCursor.aimCursorWorldPos.x * 0.015625 - 0.5,
         ),
         "y": Math.round(
-          api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5,
+          aimCursor.aimCursorWorldPos.y * 0.015625 - 0.5,
         ),
       });
     }

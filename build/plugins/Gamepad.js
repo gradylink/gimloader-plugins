@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.11.0
+ * @version 0.12.0
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -81,6 +81,8 @@ var aimCursorUpdate = () => {
     aimCursor.x ** aimCursor.scene.resizeManager.usedDpi,
     aimCursor.y ** aimCursor.scene.resizeManager.usedDpi
   );
+  api.stores.phaser.scene.inputManager.mouse.worldX = aimCursor.aimCursorWorldPos.x;
+  api.stores.phaser.scene.inputManager.mouse.worldY = aimCursor.aimCursorWorldPos.y;
   const horizontalCenter = window.innerWidth * aimCursor.scene.resizeManager.usedDpi / 2;
   const verticalCenter = window.innerHeight * aimCursor.scene.resizeManager.usedDpi / 2;
   aimCursor.centerShiftX = horizontalCenter - aimCursor.x;
@@ -114,10 +116,10 @@ var aimCursorUpdate = () => {
     } else {
       api.net.send("CONSUME", {
         "x": Math.round(
-          api.stores.phaser.mainCharacter.body.x * 0.015625 - 0.5
+          aimCursor.aimCursorWorldPos.x * 0.015625 - 0.5
         ),
         "y": Math.round(
-          api.stores.phaser.mainCharacter.body.y * 0.015625 - 0.5
+          aimCursor.aimCursorWorldPos.y * 0.015625 - 0.5
         )
       });
     }
