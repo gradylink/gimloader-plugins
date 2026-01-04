@@ -4,6 +4,25 @@ import { getPhysicsInput as getTopdownPhysicsInput } from "./movement/topdown";
 import { answeringQuestions, handleUIInput, initUI } from "./ui";
 import { handlePlatformerInput } from "./movement/platformer";
 
+const mappingOptions: { label: string; value: string }[] = [
+  { label: "A", value: "0" },
+  { label: "B", value: "1" },
+  { label: "X", value: "2" },
+  { label: "Y", value: "3" },
+  { label: "Left Bumper", value: "4" },
+  { label: "Right Bumper", value: "5" },
+  { label: "Left trigger", value: "6" },
+  { label: "Right trigger", value: "7" },
+  { label: "Select/View", value: "8" },
+  { label: "Start/Menu", value: "9" },
+  { label: "Left Stick Pressed", value: "10" },
+  { label: "Right Stick Pressed", value: "11" },
+  { label: "DPAD Up", value: "12" },
+  { label: "DPAD Down", value: "13" },
+  { label: "DPAD Left", value: "14" },
+  { label: "DPAD Right", value: "15" },
+];
+
 api.settings.create([
   {
     type: "toggle",
@@ -63,6 +82,101 @@ api.settings.create([
     description:
       "Keep in mind some browsers/controllers do not support this setting.",
   },
+  {
+    type: "group",
+    title: "Mappings",
+    settings: [
+      {
+        type: "multiselect",
+        title: "Left",
+        id: "left",
+        options: mappingOptions,
+        default: ["14"],
+      },
+      {
+        type: "multiselect",
+        title: "Right",
+        id: "right",
+        options: mappingOptions,
+        default: ["15"],
+      },
+      {
+        type: "multiselect",
+        title: "Up",
+        id: "up",
+        options: mappingOptions,
+        default: ["12"],
+      },
+      {
+        type: "multiselect",
+        title: "Down",
+        id: "down",
+        options: mappingOptions,
+        default: ["13"],
+      },
+      {
+        type: "multiselect",
+        title: "Jump",
+        id: "jump",
+        options: mappingOptions,
+        default: ["12", "0", "1"],
+      },
+      {
+        type: "multiselect",
+        title: "Answer Questions",
+        id: "questions",
+        options: mappingOptions,
+        default: ["3"],
+      },
+      {
+        type: "multiselect",
+        title: "Consume/Use",
+        id: "consume",
+        options: mappingOptions,
+        default: ["6"],
+      },
+      {
+        type: "multiselect",
+        title: "Fire",
+        id: "fire",
+        options: mappingOptions,
+        default: ["7"],
+      },
+      {
+        type: "multiselect",
+        title: "Hotbar Left",
+        id: "inventoryLeft",
+        options: mappingOptions,
+        default: ["4"],
+      },
+      {
+        type: "multiselect",
+        title: "Hotbar Right",
+        id: "inventoryRight",
+        options: mappingOptions,
+        default: ["5"],
+      },
+      {
+        type: "multiselect",
+        title: "UI Select",
+        id: "select",
+        options: mappingOptions,
+        default: ["0"],
+      },
+      {
+        type: "toggle",
+        title: "Swap Joysticks",
+        id: "swapJoysticks",
+        default: false,
+      },
+      {
+        type: "toggle",
+        title: "Invert Vertical Look",
+        id: "invertLook",
+        default: false,
+      },
+    ],
+  },
 ]);
 
 let originalGetPhysicsInput:
@@ -120,9 +234,10 @@ api.net.onLoad(() => {
         return { angle: null, jump: false, _jumpKeyPressed: false };
       }
     }
-    if (answeringQuestions) {
-      handleUIInput();
 
+    handleUIInput();
+
+    if (answeringQuestions) {
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
 

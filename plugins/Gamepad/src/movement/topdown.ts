@@ -1,4 +1,4 @@
-import { gamepad, inputCooldown, keyInputDown } from "../input";
+import { gamepad, getJoysickAxis, isMappingDown, keyInputDown } from "../input";
 
 const getMagnitude = () => {
   if (gamepad === null) return 0;
@@ -14,46 +14,14 @@ export const getPhysicsInput = (): Gimloader.Stores.TickInput => {
   let down = keyInputDown("down") && api.settings.keyboard;
 
   if (gamepad !== null) {
-    if (!inputCooldown) {
-      if (gamepad?.buttons[4].pressed) {
-        api.stores.me.inventory.activeInteractiveSlot--;
-        if (api.stores.me.inventory.activeInteractiveSlot < 0) {
-          api.stores.me.inventory.activeInteractiveSlot =
-            api.stores.me.inventory.slots.size - 1;
-        }
-
-        api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
-          slotNum: api.stores.me.inventory.activeInteractiveSlot,
-        });
-
-        inputCooldown.value = true;
-        setTimeout(() => inputCooldown.value = false, 200);
-      } else if (gamepad?.buttons[5].pressed) {
-        api.stores.me.inventory.activeInteractiveSlot++;
-        if (
-          api.stores.me.inventory.activeInteractiveSlot >=
-            api.stores.me.inventory.slots.size
-        ) {
-          api.stores.me.inventory.activeInteractiveSlot = 0;
-        }
-
-        api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
-          slotNum: api.stores.me.inventory.activeInteractiveSlot,
-        });
-
-        inputCooldown.value = true;
-        setTimeout(() => inputCooldown.value = false, 200);
-      }
-    }
-
-    up ||= gamepad?.buttons[12].pressed ||
-      gamepad?.axes[1]! < -api.settings.deadzone;
-    right ||= gamepad?.buttons[15].pressed ||
-      gamepad?.axes[0]! > api.settings.deadzone;
-    left ||= gamepad?.buttons[14].pressed ||
-      gamepad?.axes[0]! < -api.settings.deadzone;
-    down ||= gamepad?.buttons[13].pressed ||
-      gamepad?.axes[1]! > api.settings.deadzone;
+    up ||= isMappingDown(api.settings.up) ||
+      getJoysickAxis("move", "y") < -api.settings.deadzone;
+    right ||= isMappingDown(api.settings.right) ||
+      getJoysickAxis("move", "x") > api.settings.deadzone;
+    left ||= isMappingDown(api.settings.left) ||
+      getJoysickAxis("move", "x") < -api.settings.deadzone;
+    down ||= isMappingDown(api.settings.down) ||
+      getJoysickAxis("move", "y") > api.settings.deadzone;
 
     if (
       getMagnitude() > api.settings.deadzone &&
@@ -87,7 +55,8 @@ export const getPhysicsInput = (): Gimloader.Stores.TickInput => {
       api.settings.preciseTopdown == "direction")
   ) {
     physicsAngle =
-      (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI +
+      (Math.atan2(getJoysickAxis("move", "y"), getJoysickAxis("move", "x")) *
+          180 / Math.PI +
         360) %
       360;
   } else if (

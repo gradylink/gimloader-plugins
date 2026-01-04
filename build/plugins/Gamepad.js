@@ -2,7 +2,7 @@
  * @name Gamepad
  * @description Controller Support For Gimkit.
  * @author grady.link
- * @version 0.10.1
+ * @version 0.11.0
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/Gamepad.js
  */
 
@@ -44,17 +44,31 @@ var keyInputDown = (direction) => {
   }
   return false;
 };
+var isMappingDown = (mapping) => {
+  if (gamepad === null) return false;
+  for (const button of mapping) {
+    if (gamepad.buttons[parseInt(button)].pressed) return true;
+  }
+  return false;
+};
+var getJoysickAxis = (joystick, axis) => {
+  if (gamepad === null) return 0;
+  if (api.settings.swapJoysticks) {
+    return gamepad.axes[(joystick === "move" ? 2 : 0) + (axis === "x" ? 0 : 1)] * (joystick === "look" && axis === "y" && api.settings.invertLook ? -1 : 1);
+  }
+  return gamepad.axes[(joystick === "move" ? 0 : 2) + (axis === "x" ? 0 : 1)] * (joystick === "look" && axis === "y" && api.settings.invertLook ? -1 : 1);
+};
 
 // plugins/Gamepad/src/aimCursor.ts
 var leftTriggerWasPressed = false;
 var aimCursorUpdate = () => {
   const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
   if (gamepad !== null) {
-    if (Math.abs(gamepad.axes[2]) > api.settings.deadzone) {
-      aimCursor.x += gamepad.axes[2] * api.settings.lookSensitivity;
+    if (Math.abs(getJoysickAxis("look", "x")) > api.settings.deadzone) {
+      aimCursor.x += getJoysickAxis("look", "x") * api.settings.lookSensitivity;
     }
-    if (Math.abs(gamepad.axes[3]) > api.settings.deadzone) {
-      aimCursor.y += gamepad.axes[3] * api.settings.lookSensitivity;
+    if (Math.abs(getJoysickAxis("look", "y")) > api.settings.deadzone) {
+      aimCursor.y += getJoysickAxis("look", "y") * api.settings.lookSensitivity;
     }
   }
   aimCursor.aimCursor.x = aimCursor.x;
@@ -133,33 +147,10 @@ var getPhysicsInput = () => {
   let left = keyInputDown("left") && api.settings.keyboard;
   let down = keyInputDown("down") && api.settings.keyboard;
   if (gamepad !== null) {
-    if (!inputCooldown) {
-      if (gamepad?.buttons[4].pressed) {
-        api.stores.me.inventory.activeInteractiveSlot--;
-        if (api.stores.me.inventory.activeInteractiveSlot < 0) {
-          api.stores.me.inventory.activeInteractiveSlot = api.stores.me.inventory.slots.size - 1;
-        }
-        api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
-          slotNum: api.stores.me.inventory.activeInteractiveSlot
-        });
-        inputCooldown.value = true;
-        setTimeout(() => inputCooldown.value = false, 200);
-      } else if (gamepad?.buttons[5].pressed) {
-        api.stores.me.inventory.activeInteractiveSlot++;
-        if (api.stores.me.inventory.activeInteractiveSlot >= api.stores.me.inventory.slots.size) {
-          api.stores.me.inventory.activeInteractiveSlot = 0;
-        }
-        api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
-          slotNum: api.stores.me.inventory.activeInteractiveSlot
-        });
-        inputCooldown.value = true;
-        setTimeout(() => inputCooldown.value = false, 200);
-      }
-    }
-    up ||= gamepad?.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone;
-    right ||= gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
-    left ||= gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
-    down ||= gamepad?.buttons[13].pressed || gamepad?.axes[1] > api.settings.deadzone;
+    up ||= isMappingDown(api.settings.up) || getJoysickAxis("move", "y") < -api.settings.deadzone;
+    right ||= isMappingDown(api.settings.right) || getJoysickAxis("move", "x") > api.settings.deadzone;
+    left ||= isMappingDown(api.settings.left) || getJoysickAxis("move", "x") < -api.settings.deadzone;
+    down ||= isMappingDown(api.settings.down) || getJoysickAxis("move", "y") > api.settings.deadzone;
     if (getMagnitude() > api.settings.deadzone && (api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "speed")) {
       api.stores.me.movementSpeed = normalSpeed * Math.max(
         getMagnitude(),
@@ -178,7 +169,7 @@ var getPhysicsInput = () => {
     down = false;
   }
   if (gamepad !== null && getMagnitude() > api.settings.deadzone && (api.settings.preciseTopdown == "on" || api.settings.preciseTopdown == "direction")) {
-    physicsAngle = (Math.atan2(gamepad.axes[1], gamepad.axes[0]) * 180 / Math.PI + 360) % 360;
+    physicsAngle = (Math.atan2(getJoysickAxis("move", "y"), getJoysickAxis("move", "x")) * 180 / Math.PI + 360) % 360;
   } else if ((down || up || left || right) && !(left && right) && !(down && up)) {
     physicsAngle = (Math.atan2(+down - +up, +right - +left) * 180 / Math.PI + 360) % 360;
   }
@@ -217,7 +208,29 @@ var initUI = () => {
 };
 var handleUIInput = () => {
   if (gamepad === null || inputCooldown.value) return;
-  if (gamepad.buttons[0].pressed) {
+  if (isMappingDown(api.settings.inventoryLeft)) {
+    api.stores.me.inventory.activeInteractiveSlot--;
+    if (api.stores.me.inventory.activeInteractiveSlot < 0) {
+      api.stores.me.inventory.activeInteractiveSlot = api.stores.me.inventory.slots.size - 1;
+    }
+    api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
+      slotNum: api.stores.me.inventory.activeInteractiveSlot
+    });
+    inputCooldown.value = true;
+    setTimeout(() => inputCooldown.value = false, 200);
+  } else if (isMappingDown(api.settings.inventoryRight)) {
+    api.stores.me.inventory.activeInteractiveSlot++;
+    if (api.stores.me.inventory.activeInteractiveSlot >= api.stores.me.inventory.slots.size) {
+      api.stores.me.inventory.activeInteractiveSlot = 0;
+    }
+    api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
+      slotNum: api.stores.me.inventory.activeInteractiveSlot
+    });
+    inputCooldown.value = true;
+    setTimeout(() => inputCooldown.value = false, 200);
+  }
+  if (!answeringQuestions) return;
+  if (isMappingDown(api.settings.select)) {
     const selectedQuestionText = document.querySelector(
       `[answercolors][position="${selectedAnswer}"]`
     )?.querySelector("span")?.textContent;
@@ -245,19 +258,19 @@ var handleUIInput = () => {
     inputCooldown.value = true;
     setTimeout(() => inputCooldown.value = false, 350);
   }
-  if (gamepad.buttons[12].pressed || gamepad.axes[1] < -api.settings.deadzone) {
+  if (isMappingDown(api.settings.up) || getJoysickAxis("move", "y") < -api.settings.deadzone) {
     selectedAnswer -= 2;
     updateSelectedAnswer();
   }
-  if (gamepad.buttons[13].pressed || gamepad.axes[1] > api.settings.deadzone) {
+  if (isMappingDown(api.settings.down) || getJoysickAxis("move", "y") > api.settings.deadzone) {
     selectedAnswer += 2;
     updateSelectedAnswer();
   }
-  if (gamepad.buttons[15].pressed || gamepad.axes[0] > api.settings.deadzone) {
+  if (isMappingDown(api.settings.right) || getJoysickAxis("move", "x") > api.settings.deadzone) {
     selectedAnswer++;
     updateSelectedAnswer();
   }
-  if (gamepad.buttons[14].pressed || gamepad.axes[0] < -api.settings.deadzone) {
+  if (isMappingDown(api.settings.left) || getJoysickAxis("move", "x") < -api.settings.deadzone) {
     selectedAnswer--;
     updateSelectedAnswer();
   }
@@ -284,9 +297,9 @@ var previousFrame = {
 };
 var handlePlatformerInput = () => {
   if (gamepad === null) return;
-  const left = gamepad?.buttons[14].pressed || gamepad?.axes[0] < -api.settings.deadzone;
-  const right = gamepad?.buttons[15].pressed || gamepad?.axes[0] > api.settings.deadzone;
-  const jump = gamepad.buttons[0].pressed || gamepad.buttons[1].pressed || gamepad.buttons[12].pressed || gamepad?.axes[1] < -api.settings.deadzone && api.settings.joystickJump;
+  const left = isMappingDown(api.settings.left) || getJoysickAxis("move", "x") < -api.settings.deadzone;
+  const right = isMappingDown(api.settings.right) || getJoysickAxis("move", "x") > api.settings.deadzone;
+  const jump = isMappingDown(api.settings.jump) || getJoysickAxis("move", "y") < -api.settings.deadzone && api.settings.joystickJump;
   if (!previousFrame.left && left) {
     api.stores.phaser.scene.inputManager.keyboard.heldKeys.add(
       Phaser.Input.Keyboard.KeyCodes.LEFT
@@ -329,6 +342,24 @@ var handlePlatformerInput = () => {
 };
 
 // plugins/Gamepad/src/index.ts
+var mappingOptions = [
+  { label: "A", value: "0" },
+  { label: "B", value: "1" },
+  { label: "X", value: "2" },
+  { label: "Y", value: "3" },
+  { label: "Left Bumper", value: "4" },
+  { label: "Right Bumper", value: "5" },
+  { label: "Left trigger", value: "6" },
+  { label: "Right trigger", value: "7" },
+  { label: "Select/View", value: "8" },
+  { label: "Start/Menu", value: "9" },
+  { label: "Left Stick Pressed", value: "10" },
+  { label: "Right Stick Pressed", value: "11" },
+  { label: "DPAD Up", value: "12" },
+  { label: "DPAD Down", value: "13" },
+  { label: "DPAD Left", value: "14" },
+  { label: "DPAD Right", value: "15" }
+];
 api.settings.create([
   {
     type: "toggle",
@@ -386,6 +417,101 @@ api.settings.create([
     title: "Rumble",
     default: true,
     description: "Keep in mind some browsers/controllers do not support this setting."
+  },
+  {
+    type: "group",
+    title: "Mappings",
+    settings: [
+      {
+        type: "multiselect",
+        title: "Left",
+        id: "left",
+        options: mappingOptions,
+        default: ["14"]
+      },
+      {
+        type: "multiselect",
+        title: "Right",
+        id: "right",
+        options: mappingOptions,
+        default: ["15"]
+      },
+      {
+        type: "multiselect",
+        title: "Up",
+        id: "up",
+        options: mappingOptions,
+        default: ["12"]
+      },
+      {
+        type: "multiselect",
+        title: "Down",
+        id: "down",
+        options: mappingOptions,
+        default: ["13"]
+      },
+      {
+        type: "multiselect",
+        title: "Jump",
+        id: "jump",
+        options: mappingOptions,
+        default: ["12", "0", "1"]
+      },
+      {
+        type: "multiselect",
+        title: "Answer Questions",
+        id: "questions",
+        options: mappingOptions,
+        default: ["3"]
+      },
+      {
+        type: "multiselect",
+        title: "Consume/Use",
+        id: "consume",
+        options: mappingOptions,
+        default: ["6"]
+      },
+      {
+        type: "multiselect",
+        title: "Fire",
+        id: "fire",
+        options: mappingOptions,
+        default: ["7"]
+      },
+      {
+        type: "multiselect",
+        title: "Hotbar Left",
+        id: "inventoryLeft",
+        options: mappingOptions,
+        default: ["4"]
+      },
+      {
+        type: "multiselect",
+        title: "Hotbar Right",
+        id: "inventoryRight",
+        options: mappingOptions,
+        default: ["5"]
+      },
+      {
+        type: "multiselect",
+        title: "UI Select",
+        id: "select",
+        options: mappingOptions,
+        default: ["0"]
+      },
+      {
+        type: "toggle",
+        title: "Swap Joysticks",
+        id: "swapJoysticks",
+        default: false
+      },
+      {
+        type: "toggle",
+        title: "Invert Vertical Look",
+        id: "invertLook",
+        default: false
+      }
+    ]
   }
 ]);
 var originalGetPhysicsInput = null;
@@ -421,8 +547,8 @@ api.net.onLoad(() => {
         return { angle: null, jump: false, _jumpKeyPressed: false };
       }
     }
+    handleUIInput();
     if (answeringQuestions) {
-      handleUIInput();
       return { angle: null, jump: false, _jumpKeyPressed: false };
     }
     if (gamepad !== null) {

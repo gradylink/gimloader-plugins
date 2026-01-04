@@ -1,4 +1,4 @@
-import { gamepad } from "./input";
+import { gamepad, getJoysickAxis } from "./input";
 
 let leftTriggerWasPressed = false;
 
@@ -6,11 +6,11 @@ export const aimCursorUpdate = () => {
   const aimCursor = api.stores.phaser.scene.inputManager.aimCursor;
 
   if (gamepad !== null) {
-    if (Math.abs(gamepad.axes[2]) > api.settings.deadzone) {
-      aimCursor.x += gamepad.axes[2] * api.settings.lookSensitivity;
+    if (Math.abs(getJoysickAxis("look", "x")) > api.settings.deadzone) {
+      aimCursor.x += getJoysickAxis("look", "x") * api.settings.lookSensitivity;
     }
-    if (Math.abs(gamepad.axes[3]) > api.settings.deadzone) {
-      aimCursor.y += gamepad.axes[3] * api.settings.lookSensitivity;
+    if (Math.abs(getJoysickAxis("look", "y")) > api.settings.deadzone) {
+      aimCursor.y += getJoysickAxis("look", "y") * api.settings.lookSensitivity;
     }
   }
   aimCursor.aimCursor.x = aimCursor.x;

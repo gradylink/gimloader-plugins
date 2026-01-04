@@ -54,3 +54,29 @@ export const keyInputDown = (
 
   return false;
 };
+
+export const isMappingDown = (mapping: string[]): boolean => {
+  if (gamepad === null) return false;
+
+  for (const button of mapping) {
+    if (gamepad.buttons[parseInt(button)].pressed) return true;
+  }
+
+  return false;
+};
+
+export const getJoysickAxis = (
+  joystick: "move" | "look",
+  axis: "x" | "y",
+): number => {
+  if (gamepad === null) return 0;
+
+  if (api.settings.swapJoysticks) {
+    return gamepad
+      .axes[(joystick === "move" ? 2 : 0) + (axis === "x" ? 0 : 1)] *
+      (joystick === "look" && axis === "y" && api.settings.invertLook ? -1 : 1);
+  }
+
+  return gamepad.axes[(joystick === "move" ? 0 : 2) + (axis === "x" ? 0 : 1)] *
+    (joystick === "look" && axis === "y" && api.settings.invertLook ? -1 : 1);
+};

@@ -1,4 +1,4 @@
-import { gamepad, inputCooldown } from "./input";
+import { gamepad, getJoysickAxis, inputCooldown, isMappingDown } from "./input";
 
 enum SelectedAnswer {
   TopLeft = 0,
@@ -42,7 +42,39 @@ export const initUI = () => {
 export const handleUIInput = () => {
   if (gamepad === null || inputCooldown.value) return;
 
-  if (gamepad.buttons[0].pressed) {
+  if (isMappingDown(api.settings.inventoryLeft)) {
+    api.stores.me.inventory.activeInteractiveSlot--;
+    if (api.stores.me.inventory.activeInteractiveSlot < 0) {
+      api.stores.me.inventory.activeInteractiveSlot =
+        api.stores.me.inventory.slots.size - 1;
+    }
+
+    api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
+      slotNum: api.stores.me.inventory.activeInteractiveSlot,
+    });
+
+    inputCooldown.value = true;
+    setTimeout(() => inputCooldown.value = false, 200);
+  } else if (isMappingDown(api.settings.inventoryRight)) {
+    api.stores.me.inventory.activeInteractiveSlot++;
+    if (
+      api.stores.me.inventory.activeInteractiveSlot >=
+        api.stores.me.inventory.slots.size
+    ) {
+      api.stores.me.inventory.activeInteractiveSlot = 0;
+    }
+
+    api.net.send("SET_ACTIVE_INTERACTIVE_ITEM", {
+      slotNum: api.stores.me.inventory.activeInteractiveSlot,
+    });
+
+    inputCooldown.value = true;
+    setTimeout(() => inputCooldown.value = false, 200);
+  }
+
+  if (!answeringQuestions) return;
+
+  if (isMappingDown(api.settings.select)) {
     const selectedQuestionText = document.querySelector(
       `[answercolors][position="${selectedAnswer}"]`,
     )?.querySelector("span")?.textContent;
@@ -92,29 +124,29 @@ export const handleUIInput = () => {
   }
 
   if (
-    gamepad.buttons[12].pressed ||
-    gamepad.axes[1] < -api.settings.deadzone
+    isMappingDown(api.settings.up) ||
+    getJoysickAxis("move", "y") < -api.settings.deadzone
   ) {
     selectedAnswer -= 2;
     updateSelectedAnswer();
   }
   if (
-    gamepad.buttons[13].pressed ||
-    gamepad.axes[1] > api.settings.deadzone
+    isMappingDown(api.settings.down) ||
+    getJoysickAxis("move", "y") > api.settings.deadzone
   ) {
     selectedAnswer += 2;
     updateSelectedAnswer();
   }
   if (
-    gamepad.buttons[15].pressed ||
-    gamepad.axes[0] > api.settings.deadzone
+    isMappingDown(api.settings.right) ||
+    getJoysickAxis("move", "x") > api.settings.deadzone
   ) {
     selectedAnswer++;
     updateSelectedAnswer();
   }
   if (
-    gamepad.buttons[14].pressed ||
-    gamepad.axes[0] < -api.settings.deadzone
+    isMappingDown(api.settings.left) ||
+    getJoysickAxis("move", "x") < -api.settings.deadzone
   ) {
     selectedAnswer--;
     updateSelectedAnswer();

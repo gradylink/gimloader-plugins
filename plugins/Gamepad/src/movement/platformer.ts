@@ -1,4 +1,4 @@
-import { gamepad } from "../input";
+import { gamepad, getJoysickAxis, isMappingDown } from "../input";
 
 const normalSpeed = 310;
 
@@ -11,13 +11,13 @@ let previousFrame = {
 export const handlePlatformerInput = () => {
   if (gamepad === null) return;
 
-  const left = gamepad?.buttons[14].pressed ||
-    gamepad?.axes[0]! < -api.settings.deadzone;
-  const right = gamepad?.buttons[15].pressed ||
-    gamepad?.axes[0]! > api.settings.deadzone;
-  const jump = gamepad.buttons[0].pressed || gamepad.buttons[1].pressed ||
-    gamepad.buttons[12].pressed ||
-    (gamepad?.axes[1]! < -api.settings.deadzone && api.settings.joystickJump);
+  const left = isMappingDown(api.settings.left) ||
+    getJoysickAxis("move", "x") < -api.settings.deadzone;
+  const right = isMappingDown(api.settings.right) ||
+    getJoysickAxis("move", "x") > api.settings.deadzone;
+  const jump = isMappingDown(api.settings.jump) ||
+    (getJoysickAxis("move", "y") < -api.settings.deadzone &&
+      api.settings.joystickJump);
 
   if (!previousFrame.left && left) {
     api.stores.phaser.scene.inputManager.keyboard.heldKeys.add(
