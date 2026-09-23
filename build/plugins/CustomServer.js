@@ -2,7 +2,7 @@
  * @name CustomServer
  * @description Allows you to use custom servers with Gimkit.
  * @author grady.link
- * @version 0.1.0
+ * @version 0.2.0
  * @downloadUrl https://raw.githubusercontent.com/gradylink/gimloader-plugins/refs/heads/main/build/plugins/CustomServer.js
  */
 
@@ -34,6 +34,13 @@ api.net.modifyFetchRequest(
     return data;
   }
 );
+api.net.modifyFetchRequest(
+  "/api/matchmaker/intent/map/play/create",
+  (data) => {
+    data.url = normalizedMatchmakerUrl() + data.url;
+    return data;
+  }
+);
 api.net.modifyFetchRequest("/api/matchmaker/find-info-from-code", (data) => {
   data.url = normalizedMatchmakerUrl() + data.url;
   return data;
@@ -48,6 +55,13 @@ api.net.modifyFetchRequest("/api/matchmaker/intent/fetch-source/*", (data) => {
 });
 api.net.modifyFetchRequest(
   "/api/matchmaker/intent/live-game/summary/*",
+  (data) => {
+    data.url = normalizedMatchmakerUrl() + data.url;
+    return data;
+  }
+);
+api.net.modifyFetchRequest(
+  "/api/matchmaker/intent/map/summary/*",
   (data) => {
     data.url = normalizedMatchmakerUrl() + data.url;
     return data;

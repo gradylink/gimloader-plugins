@@ -29,6 +29,14 @@ api.net.modifyFetchRequest(
   },
 );
 
+api.net.modifyFetchRequest(
+  "/api/matchmaker/intent/map/play/create",
+  (data) => {
+    data.url = normalizedMatchmakerUrl() + data.url;
+    return data;
+  },
+);
+
 api.net.modifyFetchRequest("/api/matchmaker/find-info-from-code", (data) => {
   data.url = normalizedMatchmakerUrl() + data.url;
   return data;
@@ -46,6 +54,14 @@ api.net.modifyFetchRequest("/api/matchmaker/intent/fetch-source/*", (data) => {
 
 api.net.modifyFetchRequest(
   "/api/matchmaker/intent/live-game/summary/*",
+  (data) => {
+    data.url = normalizedMatchmakerUrl() + data.url;
+    return data;
+  },
+);
+
+api.net.modifyFetchRequest(
+  "/api/matchmaker/intent/map/summary/*",
   (data) => {
     data.url = normalizedMatchmakerUrl() + data.url;
     return data;
